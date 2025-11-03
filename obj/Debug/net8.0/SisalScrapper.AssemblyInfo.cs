@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SisalScrapper")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+c0413ad2fbcf917564baf053e718424d6a33c337")]
 [assembly: System.Reflection.AssemblyProductAttribute("SisalScrapper")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SisalScrapper")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

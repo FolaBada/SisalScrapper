@@ -13,7 +13,7 @@ namespace SisalScraper
             //  await scraper.RunAsync("rugby");
         //    await scraper.RunAsync("american football"); 
         //   await scraper.RunAsync("Basket");
-            // await scraper.RunAsync("Calcio");
+            await scraper.RunAsync("Calcio");
             // await scraper.RunAsync("baseball");
             // await scraper.RunAsync("ice hockey");
         //    await scraper.RunAsync("Tennis");

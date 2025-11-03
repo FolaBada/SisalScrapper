@@ -714,3 +714,4 @@ C:\Users\User2\Desktop\SisalSxrapper\SisalScrapper\obj\Debug\net8.0\refint\Sisal
 C:\Users\User2\Desktop\SisalSxrapper\SisalScrapper\obj\Debug\net8.0\SisalScrapper.pdb
 C:\Users\User2\Desktop\SisalSxrapper\SisalScrapper\obj\Debug\net8.0\SisalScrapper.genruntimeconfig.cache
 C:\Users\User2\Desktop\SisalSxrapper\SisalScrapper\obj\Debug\net8.0\ref\SisalScrapper.dll
+C:\Users\User2\Desktop\SisalSxrapper\SisalScrapper\obj\Debug\net8.0\SisalScrapper.sourcelink.json
