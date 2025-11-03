@@ -1,0 +1,13 @@
+﻿# .NET build output
+bin/
+obj/
+
+# VS/VS Code
+*.user
+*.suo
+.vscode/
+.idea/
+
+# Logs & temp
+*.log
+*.tmp
