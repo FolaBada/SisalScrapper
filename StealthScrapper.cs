@@ -9,6 +9,7 @@ using System.Text.Encodings.Web;
 using System.Text.RegularExpressions;
 using System.Globalization;
 using System.Linq;
+using SharedOdds;
 
 namespace SisalScraper
 {
@@ -78,12 +79,12 @@ namespace SisalScraper
                 await HandleAllBlockers(page);
                 await baseballTile.ClickAsync(new() { Force = true });
                 await HandleAllBlockers(page);
-await WithBlankRecoveryAsync(page, "Baseball", async () =>
-{
-    await WarmupFirstThreeCountriesAsync(page, "Baseball");
-    await ExtractAllCountriesAsync(page, "Baseball");
-});
-return; // stop after Baseball
+                await WithBlankRecoveryAsync(page, "Baseball", async () =>
+                {
+                    await WarmupFirstThreeCountriesAsync(page, "Baseball");
+                    await ExtractAllCountriesAsync(page, "Baseball");
+                });
+                return; // stop after Baseball
 
             }
 
@@ -98,12 +99,12 @@ return; // stop after Baseball
                 await hockeyTile.ClickAsync(new() { Force = true });
                 await HandleAllBlockers(page);
                 //await page.PauseAsync();
-               await WithBlankRecoveryAsync(page, "Ice Hockey", async () =>
-{
-    await WarmupFirstThreeCountriesAsync(page, "Ice Hockey");
-    await ExtractAllCountriesAsync(page, "Ice Hockey");
-});
-return; // stop after Hockey
+                await WithBlankRecoveryAsync(page, "Ice Hockey", async () =>
+ {
+     await WarmupFirstThreeCountriesAsync(page, "Ice Hockey");
+     await ExtractAllCountriesAsync(page, "Ice Hockey");
+ });
+                return; // stop after Hockey
 
             }
 
@@ -127,16 +128,16 @@ return; // stop after Hockey
                 await rugbyTile.ClickAsync(new() { Force = true });
                 await HandleAllBlockers(page);
 
-               // NEW: ensure Rugby context + reveal league grid when accordions are absent
-await EnsureRugbyContextAsync(page);
-await TryOpenRugbyLeagueGridAsync(page);
+                // NEW: ensure Rugby context + reveal league grid when accordions are absent
+                await EnsureRugbyContextAsync(page);
+                await TryOpenRugbyLeagueGridAsync(page);
 
-await WithBlankRecoveryAsync(page, "Rugby", async () =>
-{
-    await WarmupFirstThreeCountriesAsync(page, "Rugby");
-    await ExtractAllCountriesAsync(page, "Rugby");
-});
-return; // stop after Rugby
+                await WithBlankRecoveryAsync(page, "Rugby", async () =>
+                {
+                    await WarmupFirstThreeCountriesAsync(page, "Rugby");
+                    await ExtractAllCountriesAsync(page, "Rugby");
+                });
+                return; // stop after Rugby
 
             }
 
@@ -152,12 +153,12 @@ return; // stop after Rugby
                 await nflTile.ClickAsync(new() { Force = true });
                 await HandleAllBlockers(page);
 
-               await WithBlankRecoveryAsync(page, "American Football", async () =>
-{
-    await WarmupFirstThreeCountriesAsync(page, "American Football");
-    await ExtractAllCountriesAsync(page, "American Football");
-});
-return; // stop after American Football
+                await WithBlankRecoveryAsync(page, "American Football", async () =>
+ {
+     await WarmupFirstThreeCountriesAsync(page, "American Football");
+     await ExtractAllCountriesAsync(page, "American Football");
+ });
+                return; // stop after American Football
 
             }
 
@@ -263,100 +264,102 @@ return; // stop after American Football
 
                 await WarmupFirstThreeCountriesAsync(page, rawText);
 
-              await WithBlankRecoveryAsync(page, rawText, async () =>
-{
-    await WarmupFirstThreeCountriesAsync(page, rawText);
-    await ExtractAllCountriesAsync(page, rawText); // branching happens inside
-});
-if (singleSportMode) break;
+                await WithBlankRecoveryAsync(page, rawText, async () =>
+  {
+      await WarmupFirstThreeCountriesAsync(page, rawText);
+      await ExtractAllCountriesAsync(page, rawText); // branching happens inside
+  });
+                if (singleSportMode) break;
 
             }
 
             await browser.CloseAsync();
         }
-        
+
         // Reads all visible O/U "cells" inside a match card and fills:
-// ou[line] = { ["O"] = overOdd, ["U"] = underOdd }
-private async Task ReadSoccerOUCellsForCardAsync(ILocator card, Dictionary<string, Dictionary<string, string>> ou)
-{
-    // One "cell" per market attribute row (your provided class)
-    var cells = card.Locator(".marketAttributeSelectorCellCommon_mg-market-attribute-selector-cell__ISAm1");
-    int count = 0; try { count = await cells.CountAsync(); } catch { }
-
-    for (int i = 0; i < count; i++)
-    {
-        var cell = cells.Nth(i);
-
-        // (A) Read the total line from the left chip's <span> (e.g., "2.5")
-        string line = "";
-        try
+        // ou[line] = { ["O"] = overOdd, ["U"] = underOdd }
+        private async Task ReadSoccerOUCellsForCardAsync(ILocator card, Dictionary<string, Dictionary<string, string>> ou)
         {
-            var lineSpan = cell.Locator(".counter-drop-chip-default-theme span").First;
-            if (await lineSpan.IsVisibleAsync(new() { Timeout = 700 }))
+            // One "cell" per market attribute row (your provided class)
+            var cells = card.Locator(".marketAttributeSelectorCellCommon_mg-market-attribute-selector-cell__ISAm1");
+            int count = 0; try { count = await cells.CountAsync(); } catch { }
+
+            for (int i = 0; i < count; i++)
             {
-                line = (await lineSpan.InnerTextAsync(new() { Timeout = 800 }))?.Trim().Replace(',', '.') ?? "";
+                var cell = cells.Nth(i);
+
+                // (A) Read the total line from the left chip's <span> (e.g., "2.5")
+                string line = "";
+                try
+                {
+                    var lineSpan = cell.Locator(".counter-drop-chip-default-theme span").First;
+                    if (await lineSpan.IsVisibleAsync(new() { Timeout = 700 }))
+                    {
+                        line = (await lineSpan.InnerTextAsync(new() { Timeout = 800 }))?.Trim().Replace(',', '.') ?? "";
+                    }
+                }
+                catch { }
+
+                // Skip if the left chip doesn't look like a numeric total
+                if (string.IsNullOrWhiteSpace(line) || !double.TryParse(line, System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out var totalVal))
+                    continue;
+
+                // (Optional) sanity check for soccer totals (roughly 0.5–10.5)
+                if (totalVal < 0.5 || totalVal > 15) continue;
+
+                // (B) Read the two outcome buttons to get Over/Under odds
+                var chips = cell.Locator("button.chips-commons");
+                int chipCount = 0; try { chipCount = await chips.CountAsync(); } catch { }
+                if (chipCount < 2) continue;
+
+                string over = "", under = "";
+                string dqa0 = "", dqa1 = "";
+
+                try { dqa0 = await chips.Nth(0).GetAttributeAsync("data-qa") ?? ""; } catch { }
+                try { dqa1 = await chips.Nth(1).GetAttributeAsync("data-qa") ?? ""; } catch { }
+
+                // Get visible text in each chip
+                try
+                {
+                    var s0 = chips.Nth(0).Locator("span").First;
+                    if (await s0.IsVisibleAsync(new() { Timeout = 600 }))
+                        over = (await s0.InnerTextAsync(new() { Timeout = 700 }))?.Trim().Replace(',', '.') ?? "";
+                }
+                catch { }
+
+                try
+                {
+                    var s1 = chips.Nth(1).Locator("span").First;
+                    if (await s1.IsVisibleAsync(new() { Timeout = 600 }))
+                        under = (await s1.InnerTextAsync(new() { Timeout = 700 }))?.Trim().Replace(',', '.') ?? "";
+                }
+                catch { }
+
+                // If data-qa tails exist, enforce mapping: tail "_1" => OVER, tail "_2" => UNDER
+                // (Your snippet: esito_..._250_1 and esito_..._250_2)
+                string tail0 = (dqa0.Split('_').LastOrDefault() ?? "").Trim();
+                string tail1 = (dqa1.Split('_').LastOrDefault() ?? "").Trim();
+
+                // Swap if the first is actually "_2" and second is "_1"
+                if (tail0 == "2" && tail1 == "1")
+                {
+                    var tmp = over; over = under; under = tmp;
+                }
+
+                // Build the row only if we have at least one price
+                if (!string.IsNullOrWhiteSpace(over) || !string.IsNullOrWhiteSpace(under))
+                {
+                    if (!ou.TryGetValue(line, out var row))
+                    {
+                        row = new Dictionary<string, string>();
+                        ou[line] = row;
+                    }
+                    if (!string.IsNullOrWhiteSpace(over)) row["O"] = over;   // <- "O" not "OVER"
+                    if (!string.IsNullOrWhiteSpace(under)) row["U"] = under;  // <- "U" not "UNDER"
+                }
             }
         }
-        catch { }
-
-        // Skip if the left chip doesn't look like a numeric total
-        if (string.IsNullOrWhiteSpace(line) || !double.TryParse(line, System.Globalization.NumberStyles.Float,
-            System.Globalization.CultureInfo.InvariantCulture, out var totalVal))
-            continue;
-
-        // (Optional) sanity check for soccer totals (roughly 0.5–10.5)
-        if (totalVal < 0.5 || totalVal > 15) continue;
-
-        // (B) Read the two outcome buttons to get Over/Under odds
-        var chips = cell.Locator("button.chips-commons");
-        int chipCount = 0; try { chipCount = await chips.CountAsync(); } catch { }
-        if (chipCount < 2) continue;
-
-        string over = "", under = "";
-        string dqa0 = "", dqa1 = "";
-
-        try { dqa0 = await chips.Nth(0).GetAttributeAsync("data-qa") ?? ""; } catch { }
-        try { dqa1 = await chips.Nth(1).GetAttributeAsync("data-qa") ?? ""; } catch { }
-
-        // Get visible text in each chip
-        try
-        {
-            var s0 = chips.Nth(0).Locator("span").First;
-            if (await s0.IsVisibleAsync(new() { Timeout = 600 }))
-                over = (await s0.InnerTextAsync(new() { Timeout = 700 }))?.Trim().Replace(',', '.') ?? "";
-        } catch { }
-
-        try
-        {
-            var s1 = chips.Nth(1).Locator("span").First;
-            if (await s1.IsVisibleAsync(new() { Timeout = 600 }))
-                under = (await s1.InnerTextAsync(new() { Timeout = 700 }))?.Trim().Replace(',', '.') ?? "";
-        } catch { }
-
-        // If data-qa tails exist, enforce mapping: tail "_1" => OVER, tail "_2" => UNDER
-        // (Your snippet: esito_..._250_1 and esito_..._250_2)
-        string tail0 = (dqa0.Split('_').LastOrDefault() ?? "").Trim();
-        string tail1 = (dqa1.Split('_').LastOrDefault() ?? "").Trim();
-
-        // Swap if the first is actually "_2" and second is "_1"
-        if (tail0 == "2" && tail1 == "1")
-        {
-            var tmp = over; over = under; under = tmp;
-        }
-
-        // Build the row only if we have at least one price
-        if (!string.IsNullOrWhiteSpace(over) || !string.IsNullOrWhiteSpace(under))
-        {
-            if (!ou.TryGetValue(line, out var row))
-            {
-                row = new Dictionary<string, string>();
-                ou[line] = row;
-            }
-            if (!string.IsNullOrWhiteSpace(over))  row["O"] = over;   // <- "O" not "OVER"
-            if (!string.IsNullOrWhiteSpace(under)) row["U"] = under;  // <- "U" not "UNDER"
-        }
-    }
-}
 
 
         // =========================
@@ -447,9 +450,9 @@ private async Task ReadSoccerOUCellsForCardAsync(ILocator card, Dictionary<strin
                         return;
                     }
                 }
-// --- American Football fallback (sport id 10) ---
-bool isAmericanFootball = sportName.Contains("american football", StringComparison.OrdinalIgnoreCase)
-                       || sportName.Contains("football americano", StringComparison.OrdinalIgnoreCase);
+                // --- American Football fallback (sport id 10) ---
+                bool isAmericanFootball = sportName.Contains("american football", StringComparison.OrdinalIgnoreCase)
+                                       || sportName.Contains("football americano", StringComparison.OrdinalIgnoreCase);
                 if (isAmericanFootball)
                 {
                     int leagues = 0;
@@ -461,25 +464,25 @@ bool isAmericanFootball = sportName.Contains("american football", StringComparis
                         return;
                     }
                 }
-                  // --- Rugby fallback (sport id 12) ---
-// --- Rugby fallback (sport id 12, plus URL-based detection) ---
-// --- Rugby fallback (sport id 12) ---
-bool isRugby = sportName.Contains("rugby", StringComparison.OrdinalIgnoreCase);
-if (isRugby)
-{
-    int leagues = 0;
-    try { leagues = await page.Locator("a[data-qa^='manifestazione_12_']").CountAsync(); } catch { }
-    if (leagues > 0)
-    {
-        Console.WriteLine("[Rugby] No country accordions — opening first visible league only, 1-X-2 scrape.");
-        await ClickSingleRugbyLeagueAndExtract1X2Async(page, "Rugby");
-        return;
-    }
-}
+                // --- Rugby fallback (sport id 12) ---
+                // --- Rugby fallback (sport id 12, plus URL-based detection) ---
+                // --- Rugby fallback (sport id 12) ---
+                bool isRugby = sportName.Contains("rugby", StringComparison.OrdinalIgnoreCase);
+                if (isRugby)
+                {
+                    int leagues = 0;
+                    try { leagues = await page.Locator("a[data-qa^='manifestazione_12_']").CountAsync(); } catch { }
+                    if (leagues > 0)
+                    {
+                        Console.WriteLine("[Rugby] No country accordions — opening first visible league only, 1-X-2 scrape.");
+                        await ClickSingleRugbyLeagueAndExtract1X2Async(page, "Rugby");
+                        return;
+                    }
+                }
 
 
-Console.WriteLine("[Extraction] No countries and no league grid detected — nothing to extract.");
-return;
+                Console.WriteLine("[Extraction] No countries and no league grid detected — nothing to extract.");
+                return;
 
             }
 
@@ -524,12 +527,12 @@ return;
                 // Reset failure counter on first successful expand
                 consecutiveExpandFailures = 0;
 
-               if (sportName.Contains("rugby", StringComparison.OrdinalIgnoreCase))
-    await CheckAllLeaguesSequentialRugbyAsync(page, country, countryName);
-else
-    await CheckAllLeaguesSequentialAsync(page, country, countryName);
+                if (sportName.Contains("rugby", StringComparison.OrdinalIgnoreCase))
+                    await CheckAllLeaguesSequentialRugbyAsync(page, country, countryName);
+                else
+                    await CheckAllLeaguesSequentialAsync(page, country, countryName);
 
-await ScrollToLoadAllFixturesAsync(page);
+                await ScrollToLoadAllFixturesAsync(page);
 
 
                 // --- Branching by sport (names are case-insensitive substrings) ---
@@ -563,11 +566,11 @@ await ScrollToLoadAllFixturesAsync(page);
                 {
                     await ExtractAmericanFootballOddsAsync(page, sportName, countryName);
                 }
-else if (isRugby)
-{
+                else if (isRugby)
+                {
                     await ExtractRugbyOddsAsync(page, sportName, countryName);
                     return;
-}
+                }
 
                 else
                 {
@@ -576,12 +579,12 @@ else if (isRugby)
                 }
 
                 if (sportName.Contains("rugby", StringComparison.OrdinalIgnoreCase))
-    await UncheckAllLeaguesSequentialRugbyAsync(page, country, countryName);
-else
-    await UncheckAllLeaguesSequentialAsync(page, country, countryName);
+                    await UncheckAllLeaguesSequentialRugbyAsync(page, country, countryName);
+                else
+                    await UncheckAllLeaguesSequentialAsync(page, country, countryName);
 
-await CollapseCountryAsync(country);
-await page.WaitForTimeoutAsync(150);
+                await CollapseCountryAsync(country);
+                await page.WaitForTimeoutAsync(150);
 
             }
 
@@ -594,9 +597,9 @@ await page.WaitForTimeoutAsync(150);
         private async Task ExtractOddsAsync(IPage page, string sportName, string countryName)
         {
             Console.WriteLine($"  🧾 Extracting odds for {sportName} - {countryName} (regular → per-league GOAL sweep)…");
-    await InstallSoccerHeaderClickMuzzleAsync(page);
+            await InstallSoccerHeaderClickMuzzleAsync(page);
 
-            var matchesList = new List<MatchData>();
+            var matchesList = new List<ScrapedMatch>();
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             await page.WaitForSelectorAsync(".grid_mg-row-wrapper__usTh4", new PageWaitForSelectorOptions { Timeout = 15000 });
@@ -664,103 +667,116 @@ await page.WaitForTimeoutAsync(150);
                     }
                 }
 
-                matchesList.Add(new MatchData { Teams = teamNames, Odds = odds });
+                matchesList.Add(new ScrapedMatch { Teams = teamNames, Odds = odds });
                 Console.WriteLine($"    ⚽ {teamNames} | regular captured: {string.Join(", ", odds.Keys.Take(6))}{(odds.Count > 6 ? "…" : "")}");
             }
 
             // ---------- PASS B: Per-league GOAL sweep for GG/NG ----------
-            var leagueBars = page.Locator(".filters-subcategory-theme");
-            int leagueCount = await leagueBars.CountAsync();
+            // var leagueBars = page.Locator(".filters-subcategory-theme");
+            // int leagueCount = await leagueBars.CountAsync();
 
-            if (leagueCount == 0)
-            {
-                Console.WriteLine("  ⚠ No per-league subcategory bars detected; skipping league sweep.");
-            }
-            else
-            {
-                Console.WriteLine($"  • Detected {leagueCount} league sections for GOAL sweep.");
+            // if (leagueCount == 0)
+            // {
+            //     Console.WriteLine("  ⚠ No per-league subcategory bars detected; skipping league sweep.");
+            // }
+            // else
+            // {
+            //     Console.WriteLine($"  • Detected {leagueCount} league sections for GOAL sweep.");
 
-                for (int li = 0; li < leagueCount; li++)
-                {
-                    var bar = leagueBars.Nth(li);
-                    var league = bar.Locator("xpath=ancestor::*[.//div[contains(@class,'grid_mg-row-wrapper__usTh4')]][1]");
+            //     for (int li = 0; li < leagueCount; li++)
+            //     {
+            //         var bar = leagueBars.Nth(li);
+            //         var league = bar.Locator("xpath=ancestor::*[.//div[contains(@class,'grid_mg-row-wrapper__usTh4')]][1]");
 
-                    bool leagueVisible = false;
-                    try { leagueVisible = await league.IsVisibleAsync(new() { Timeout = 1200 }); } catch { }
-                    if (!leagueVisible) league = bar;
+            //         bool leagueVisible = false;
+            //         try { leagueVisible = await league.IsVisibleAsync(new() { Timeout = 1200 }); } catch { }
+            //         if (!leagueVisible) league = bar;
 
-                    await league.ScrollIntoViewIfNeededAsync();
+            //         await league.ScrollIntoViewIfNeededAsync();
 
-                    bool activated = await ActivateGoalTabInLeagueAsync(league);
-                    if (!activated)
-                    {
-                        Console.WriteLine($"    ↪ League {li + 1}/{leagueCount}: GOAL tab not found/active here.");
-                        continue;
-                    }
+            //         bool activated = await ActivateGoalTabInLeagueAsync(league);
+            //         if (!activated)
+            //         {
+            //             Console.WriteLine($"    ↪ League {li + 1}/{leagueCount}: GOAL tab not found/active here.");
+            //             continue;
+            //         }
 
-                    await ScrollToLoadAllFixturesAsync(page);
-                    await WaitForCalmAsync(page);
+            //         await ScrollToLoadAllFixturesAsync(page);
+            //         await WaitForCalmAsync(page);
 
-                    foreach (var m in matchesList)
-                    {
-                        bool hasGG = !string.IsNullOrWhiteSpace(m.Odds.GetValueOrDefault("GG"));
-                        bool hasNG = !string.IsNullOrWhiteSpace(m.Odds.GetValueOrDefault("NG"));
-                        if (hasGG && hasNG) continue;
+            //         foreach (var m in matchesList)
+            //         {
+            //             bool hasGG = !string.IsNullOrWhiteSpace(m.Odds.GetValueOrDefault("GG"));
+            //             bool hasNG = !string.IsNullOrWhiteSpace(m.Odds.GetValueOrDefault("NG"));
+            //             if (hasGG && hasNG) continue;
 
-                        var parts = m.Teams.Split(" vs ", 2, StringSplitOptions.TrimEntries);
-                        if (parts.Length < 2) continue;
+            //             var parts = m.Teams.Split(" vs ", 2, StringSplitOptions.TrimEntries);
+            //             if (parts.Length < 2) continue;
 
-                        var card = league.Locator($".grid_mg-row-wrapper__usTh4:has(:text('{parts[0]}')):has(:text('{parts[1]}'))").First;
+            //             var card = league.Locator($".grid_mg-row-wrapper__usTh4:has(:text('{parts[0]}')):has(:text('{parts[1]}'))").First;
 
-                        try
-                        {
-                            if (await card.IsVisibleAsync(new() { Timeout = 1000 }))
-                            {
-                                try { await card.ScrollIntoViewIfNeededAsync(); } catch { }
-                                await AddGGNGIntoOddsForCardAsync(card, m.Odds);
-                                Console.WriteLine($"    ➕ {m.Teams} | GG:{m.Odds.GetValueOrDefault("GG")} NG:{m.Odds.GetValueOrDefault("NG")}");
-                            }
-                        }
-                        catch { /* per-card best-effort */ }
-                    }
-                }
-            }
+            //             try
+            //             {
+            //                 if (await card.IsVisibleAsync(new() { Timeout = 1000 }))
+            //                 {
+            //                     try { await card.ScrollIntoViewIfNeededAsync(); } catch { }
+            //                     await AddGGNGIntoOddsForCardAsync(card, m.Odds);
+            //                     Console.WriteLine($"    ➕ {m.Teams} | GG:{m.Odds.GetValueOrDefault("GG")} NG:{m.Odds.GetValueOrDefault("NG")}");
+            //                 }
+            //             }
+            //             catch { /* per-card best-effort */ }
+            //         }
+            //     }
+            // }
 
             // ---------- Export per country ----------
- // ---------- Export per country (unified) ----------
-var unified = new List<UnifiedOddsRecord>();
-foreach (var m in matchesList)
-{
-    // 1/X/2 moneyline captured earlier
-    var ml = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-    foreach (var k in new[] { "1","X","2" })
-        if (m.Odds.TryGetValue(k, out var v) && !string.IsNullOrWhiteSpace(v))
-            ml[k] = v;
-
-    // O/U strictly from the fixture card (no header/league tabs)
-    var ou = new Dictionary<string, Dictionary<string, string>>();
-    try
-    {
-        var parts = m.Teams.Split(" vs ", 2, StringSplitOptions.TrimEntries);
-        if (parts.Length == 2)
-        {
-            var card = page.Locator($".grid_mg-row-wrapper__usTh4:has(:text('{parts[0]}')):has(:text('{parts[1]}'))").First;
-            if (await card.IsVisibleAsync(new() { Timeout = 1500 }))
+            // ---------- Export per country (unified) ----------
+            var unified = new List<UnifiedOddsRecord>();
+            foreach (var m in matchesList)
             {
-                try { await card.ScrollIntoViewIfNeededAsync(); } catch { }
-                try { await page.Mouse.WheelAsync(0, 300); } catch { }
-                await ReadSoccerOUDropdownForCardAsync(card, ou);
+                // 1/X/2 moneyline captured earlier
+                var ml = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var k in new[] { "1", "X", "2" })
+                    if (m.Odds.TryGetValue(k, out var v) && !string.IsNullOrWhiteSpace(v))
+                        ml[k] = v;
+
+                // O/U strictly from the fixture card (no header/league tabs)
+                var ou = new Dictionary<string, Dictionary<string, string>>();
+                try
+                {
+                    var parts = m.Teams.Split(" vs ", 2, StringSplitOptions.TrimEntries);
+                    if (parts.Length == 2)
+                    {
+                        var card = page.Locator($".grid_mg-row-wrapper__usTh4:has(:text('{parts[0]}')):has(:text('{parts[1]}'))").First;
+                        if (await card.IsVisibleAsync(new() { Timeout = 1500 }))
+                        {
+                            try { await card.ScrollIntoViewIfNeededAsync(); } catch { }
+                            try { await page.Mouse.WheelAsync(0, 300); } catch { }
+                            await ReadSoccerOUDropdownForCardAsync(card, ou);
+                        }
+                    }
+                }
+                catch { /* best-effort */ }
+
+                // --- keep only O/U 2.5 for Sisal soccer ---
+                var tt = new Dictionary<string, Dictionary<string, string>>(); // none in default soccer path
+
+                // filter O/U to only 2.5 (keys are normalized to "." earlier)
+                var ouOnly = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
+                if (ou.TryGetValue("2.5", out var row25) && row25 is not null && row25.Count > 0)
+                {
+                    ouOnly["2.5"] = row25;
+                }
+
+                // build with filtered O/U
+                unified.Add(BuildUnified(sportName, m.Teams, ml, ouOnly, tt));
             }
+            await ExportUnifiedAsync(sportName, countryName, unified);
+            var merged = unified.Select(FromUnified).ToList();
+            await PostSisalLikeEurobetAsync(sportName, merged);
         }
-    }
-    catch { /* best-effort */ }
 
-    var tt = new Dictionary<string, Dictionary<string, string>>(); // none in default soccer path
-    unified.Add(BuildUnified(sportName, m.Teams, ml, ou, tt));
-}
-await ExportUnifiedAsync(sportName, countryName, unified);
 
-  }
 
         private string GetMarketLabel(int marketIndex, int oddIndex)
         {
@@ -778,8 +794,8 @@ await ExportUnifiedAsync(sportName, countryName, unified);
         }
 
 
-// Soccer O/U reader (dropdown) — identical flow to basketball,
-// but treats small-number chips (≈0.5–12.5) as totals chips.
+        // Soccer O/U reader (dropdown) — identical flow to basketball,
+        // but treats small-number chips (≈0.5–12.5) as totals chips.
 
         // =========================
         // TENNIS (NEW, SOCCER UNTOUCHED)
@@ -925,6 +941,8 @@ await ExportUnifiedAsync(sportName, countryName, unified);
                 unified.Add(BuildUnified(sportName, fx.Teams, ml, ou, tt));
             }
             await ExportUnifiedAsync(sportName, countryName, unified);
+            var merged = unified.Select(FromUnified).ToList();
+            await PostSisalLikeEurobetAsync(sportName, merged); ;
         }
 
         // When countries are not visible and only league tiles are shown
@@ -970,9 +988,9 @@ await ExportUnifiedAsync(sportName, countryName, unified);
         }
 
         // Blocks ANY clicks on header/subcategory bars (e.g., Scommesse Goal / filters bars) for soccer pages
-private async Task InstallSoccerHeaderClickMuzzleAsync(IPage page)
-{
-    const string script = @"
+        private async Task InstallSoccerHeaderClickMuzzleAsync(IPage page)
+        {
+            const string script = @"
 (() => {
   if (window.__SOCCER_HEADER_MUZZLE__) return;
   window.__SOCCER_HEADER_MUZZLE__ = true;
@@ -990,8 +1008,8 @@ private async Task InstallSoccerHeaderClickMuzzleAsync(IPage page)
   }, true);
 })();
 ";
-    try { await page.EvaluateAsync(script); } catch { }
-}
+            try { await page.EvaluateAsync(script); } catch { }
+        }
 
 
         // ---- Tennis helpers ----
@@ -1033,140 +1051,194 @@ private async Task InstallSoccerHeaderClickMuzzleAsync(IPage page)
             }
             catch { }
         }
-// Rugby-specific: checkboxes live under label.checkbox-theme input[type='checkbox'] inside the expanded country
-private async Task CheckAllLeaguesSequentialRugbyAsync(IPage page, ILocator country, string countryName)
-{
-    var content = country.Locator(".FR-Accordion__content");
-    var checkboxes = content.Locator("label.checkbox-theme input[type='checkbox']");
-    int n = 0; try { n = await checkboxes.CountAsync(); } catch { }
-
-    Console.WriteLine($"  {countryName} (Rugby): checking {n} leagues");
-
-    for (int j = 0; j < n; j++)
-    {
-        var cb = checkboxes.Nth(j);
-        try { await cb.ScrollIntoViewIfNeededAsync(); } catch { }
-        await HandleAllBlockers(page);
-        await EnsureCheckboxStateAsync(cb, true, j + 1, n);
-        await page.WaitForTimeoutAsync(70);
-    }
-
-    if (n == 0)
-        Console.WriteLine($"  ⚠ {countryName} (Rugby): no league checkboxes found under label.checkbox-theme.");
-}
-
-private async Task UncheckAllLeaguesSequentialRugbyAsync(IPage page, ILocator country, string countryName)
-{
-    var content = country.Locator(".FR-Accordion__content");
-    var checkboxes = content.Locator("label.checkbox-theme input[type='checkbox']");
-    int n = 0; try { n = await checkboxes.CountAsync(); } catch { }
-
-    Console.WriteLine($"  {countryName} (Rugby): unchecking {n} leagues");
-
-    for (int j = 0; j < n; j++)
-    {
-        var cb = checkboxes.Nth(j);
-        try { await cb.ScrollIntoViewIfNeededAsync(); } catch { }
-        await HandleAllBlockers(page);
-        await EnsureCheckboxStateAsync(cb, false, j + 1, n);
-        await page.WaitForTimeoutAsync(70);
-    }
-
-    if (n == 0)
-        Console.WriteLine($"  ⚠ {countryName} (Rugby): no league checkboxes found under label.checkbox-theme.");
-}
-
-public class HockeyFixture
-{
-    public string Teams { get; set; } = string.Empty;
-
-    // 1–X–2 for hockey (draw supported)
-    public Dictionary<string, string> Odds { get; set; } = new()
-    {
-        ["1"] = "",
-        ["X"] = "",
-        ["2"] = ""
-    };
-
-    [JsonPropertyName("TT + Handicap")]
-    public Dictionary<string, Dictionary<string, string>> TTPlusHandicap { get; set; } = new();
-
-    [JsonPropertyName("O/U")]
-    public Dictionary<string, Dictionary<string, string>> OU { get; set; } = new();
-}
-private async Task AddHockey1X2ForCardAsync(ILocator card, Dictionary<string, string> odds)
-{
-    // Preferred: explicit tails
-    try
-    {
-        var one = card.Locator("button.chips-commons[data-qa$='_0_1'] span").First; // 1
-        var draw = card.Locator("button.chips-commons[data-qa$='_0_2'] span").First; // X
-        var two  = card.Locator("button.chips-commons[data-qa$='_0_3'] span").First; // 2
-
-        if (await one.IsVisibleAsync(new() { Timeout = 700 }))
+        // ⬇️ PASTE THIS INSIDE YOUR Sisal scraper CLASS (e.g., class SisalScraper) — not outside the class
+        private static async Task PostSisalLikeEurobetAsync(
+            string sportLabel,
+            List<MatchData> merged // must be SharedOdds.MatchData list
+        )
         {
-            var t = (await one.InnerTextAsync(new() { Timeout = 800 }))?.Trim();
-            if (!string.IsNullOrWhiteSpace(t)) odds["1"] = t.Replace(',', '.');
-        }
-        if (await draw.IsVisibleAsync(new() { Timeout = 700 }))
-        {
-            var t = (await draw.InnerTextAsync(new() { Timeout = 800 }))?.Trim();
-            if (!string.IsNullOrWhiteSpace(t)) odds["X"] = t.Replace(',', '.');
-        }
-        if (await two.IsVisibleAsync(new() { Timeout = 700 }))
-        {
-            var t = (await two.InnerTextAsync(new() { Timeout = 800 }))?.Trim();
-            if (!string.IsNullOrWhiteSpace(t)) odds["2"] = t.Replace(',', '.');
+            // Match Eurobet's sport detection (adjust label strings to what you set for Sisal)
+            bool isBasket = sportLabel.Equals("Basket", StringComparison.OrdinalIgnoreCase)
+                                   || sportLabel.Equals("Basketball", StringComparison.OrdinalIgnoreCase);
+            bool isTennis = sportLabel.Equals("Tennis", StringComparison.OrdinalIgnoreCase);
+            bool isBaseball = sportLabel.Equals("Baseball", StringComparison.OrdinalIgnoreCase);
+            bool isAmericanFootball = sportLabel.Equals("Football USA", StringComparison.OrdinalIgnoreCase)
+                                   || sportLabel.Equals("American Football", StringComparison.OrdinalIgnoreCase);
+            bool isIceHockey = sportLabel.Equals("Ice Hockey", StringComparison.OrdinalIgnoreCase)
+                                   || sportLabel.Equals("Hockey Ghiaccio", StringComparison.OrdinalIgnoreCase);
+            bool isRugby = sportLabel.StartsWith("Rugby", StringComparison.OrdinalIgnoreCase)
+                                   || sportLabel.Equals("Rugby Union", StringComparison.OrdinalIgnoreCase)
+                                   || sportLabel.Equals("Rugby League", StringComparison.OrdinalIgnoreCase);
+
+            int posted = 0, failed = 0;
+
+            foreach (var m in merged)
+            {
+                if (m?.Odds == null) continue;
+
+                bool hasAny =
+                       m.Odds.One.HasValue || m.Odds.X.HasValue || m.Odds.Two.HasValue
+                    || m.Odds.GG.HasValue || m.Odds.NG.HasValue
+                    || (m.Odds.OU?.Count > 0)
+                    || (m.Odds.OneTwoHandicap?.Count > 0);
+
+                if (!hasAny) continue;
+
+                var payload = Payload.BuildClientPayload(
+                    m,
+                    sportLabel: sportLabel,
+                    looksBasket: isBasket,
+                    looksTennis: isTennis,
+                    looksBaseball: isBaseball,
+                    looksAmericanFootball: isAmericanFootball,
+                    looksIceHockey: isIceHockey,
+                    looksRugby: isRugby
+                );
+
+                var (ok, body) = await Payload.PostJsonWithRetryAsync(Payload.POST_ENDPOINT, payload);
+                if (ok) posted++; else failed++;
+                Console.WriteLine($" {(ok ? "✅" : "❌")} [Sisal/{sportLabel}] {m.Teams} → {body}");
+            }
+
+            Console.WriteLine($" → POST summary [Sisal/{sportLabel}]: {posted} ok, {failed} failed.");
         }
 
-        // If we already have at least two values, that’s good enough
-        if (!string.IsNullOrWhiteSpace(odds.GetValueOrDefault("1")) ||
-            !string.IsNullOrWhiteSpace(odds.GetValueOrDefault("X")) ||
-            !string.IsNullOrWhiteSpace(odds.GetValueOrDefault("2")))
-            return;
-    }
-    catch { }
-
-    // Fallback 1: inspect any chips matching _0_(1|2|3) and map by tail
-    try
-    {
-        var chips = card.Locator("button.chips-commons[data-qa*='_0_']");
-        int c = 0; try { c = await chips.CountAsync(); } catch { }
-        for (int i = 0; i < c; i++)
+        // Rugby-specific: checkboxes live under label.checkbox-theme input[type='checkbox'] inside the expanded country
+        private async Task CheckAllLeaguesSequentialRugbyAsync(IPage page, ILocator country, string countryName)
         {
-            string dqa = ""; string val = "";
-            try { dqa = await chips.Nth(i).GetAttributeAsync("data-qa") ?? ""; } catch { }
-            try {
-                var span = chips.Nth(i).Locator("span").First;
-                if (await span.IsVisibleAsync(new() { Timeout = 600 }))
-                    val = (await span.InnerTextAsync(new() { Timeout = 700 }))?.Trim().Replace(',', '.') ?? "";
-            } catch { }
-            if (string.IsNullOrWhiteSpace(val)) continue;
+            var content = country.Locator(".FR-Accordion__content");
+            var checkboxes = content.Locator("label.checkbox-theme input[type='checkbox']");
+            int n = 0; try { n = await checkboxes.CountAsync(); } catch { }
 
-            var tail = dqa.Split('_').LastOrDefault();
-            if (tail == "1") odds["1"] = odds.GetValueOrDefault("1") ?? val;
-            else if (tail == "2") odds["X"] = odds.GetValueOrDefault("X") ?? val;
-            else if (tail == "3") odds["2"] = odds.GetValueOrDefault("2") ?? val;
+            Console.WriteLine($"  {countryName} (Rugby): checking {n} leagues");
+
+            for (int j = 0; j < n; j++)
+            {
+                var cb = checkboxes.Nth(j);
+                try { await cb.ScrollIntoViewIfNeededAsync(); } catch { }
+                await HandleAllBlockers(page);
+                await EnsureCheckboxStateAsync(cb, true, j + 1, n);
+                await page.WaitForTimeoutAsync(70);
+            }
+
+            if (n == 0)
+                Console.WriteLine($"  ⚠ {countryName} (Rugby): no league checkboxes found under label.checkbox-theme.");
         }
-    }
-    catch { }
 
-    // Fallback 2: DOM order 1, X, 2 (only if still missing)
-    if (string.IsNullOrWhiteSpace(odds.GetValueOrDefault("1")) ||
-        string.IsNullOrWhiteSpace(odds.GetValueOrDefault("X")) ||
-        string.IsNullOrWhiteSpace(odds.GetValueOrDefault("2")))
-    {
-        try
+        private async Task UncheckAllLeaguesSequentialRugbyAsync(IPage page, ILocator country, string countryName)
         {
-            var spans = card.Locator(".grid_mg-market__gVuGf").First.Locator("button.chips-commons span");
-            var vals = await spans.AllInnerTextsAsync();
-            if (vals.Count >= 1 && string.IsNullOrWhiteSpace(odds.GetValueOrDefault("1"))) odds["1"] = vals[0].Trim().Replace(',', '.');
-            if (vals.Count >= 2 && string.IsNullOrWhiteSpace(odds.GetValueOrDefault("X"))) odds["X"] = vals[1].Trim().Replace(',', '.');
-            if (vals.Count >= 3 && string.IsNullOrWhiteSpace(odds.GetValueOrDefault("2"))) odds["2"] = vals[2].Trim().Replace(',', '.');
+            var content = country.Locator(".FR-Accordion__content");
+            var checkboxes = content.Locator("label.checkbox-theme input[type='checkbox']");
+            int n = 0; try { n = await checkboxes.CountAsync(); } catch { }
+
+            Console.WriteLine($"  {countryName} (Rugby): unchecking {n} leagues");
+
+            for (int j = 0; j < n; j++)
+            {
+                var cb = checkboxes.Nth(j);
+                try { await cb.ScrollIntoViewIfNeededAsync(); } catch { }
+                await HandleAllBlockers(page);
+                await EnsureCheckboxStateAsync(cb, false, j + 1, n);
+                await page.WaitForTimeoutAsync(70);
+            }
+
+            if (n == 0)
+                Console.WriteLine($"  ⚠ {countryName} (Rugby): no league checkboxes found under label.checkbox-theme.");
         }
-        catch { }
-    }
-}
+
+        public class HockeyFixture
+        {
+            public string Teams { get; set; } = string.Empty;
+
+            // 1–X–2 for hockey (draw supported)
+            public Dictionary<string, string> Odds { get; set; } = new()
+            {
+                ["1"] = "",
+                ["X"] = "",
+                ["2"] = ""
+            };
+
+            [JsonPropertyName("TT + Handicap")]
+            public Dictionary<string, Dictionary<string, string>> TTPlusHandicap { get; set; } = new();
+
+            [JsonPropertyName("O/U")]
+            public Dictionary<string, Dictionary<string, string>> OU { get; set; } = new();
+        }
+        private async Task AddHockey1X2ForCardAsync(ILocator card, Dictionary<string, string> odds)
+        {
+            // Preferred: explicit tails
+            try
+            {
+                var one = card.Locator("button.chips-commons[data-qa$='_0_1'] span").First; // 1
+                var draw = card.Locator("button.chips-commons[data-qa$='_0_2'] span").First; // X
+                var two = card.Locator("button.chips-commons[data-qa$='_0_3'] span").First; // 2
+
+                if (await one.IsVisibleAsync(new() { Timeout = 700 }))
+                {
+                    var t = (await one.InnerTextAsync(new() { Timeout = 800 }))?.Trim();
+                    if (!string.IsNullOrWhiteSpace(t)) odds["1"] = t.Replace(',', '.');
+                }
+                if (await draw.IsVisibleAsync(new() { Timeout = 700 }))
+                {
+                    var t = (await draw.InnerTextAsync(new() { Timeout = 800 }))?.Trim();
+                    if (!string.IsNullOrWhiteSpace(t)) odds["X"] = t.Replace(',', '.');
+                }
+                if (await two.IsVisibleAsync(new() { Timeout = 700 }))
+                {
+                    var t = (await two.InnerTextAsync(new() { Timeout = 800 }))?.Trim();
+                    if (!string.IsNullOrWhiteSpace(t)) odds["2"] = t.Replace(',', '.');
+                }
+
+                // If we already have at least two values, that’s good enough
+                if (!string.IsNullOrWhiteSpace(odds.GetValueOrDefault("1")) ||
+                    !string.IsNullOrWhiteSpace(odds.GetValueOrDefault("X")) ||
+                    !string.IsNullOrWhiteSpace(odds.GetValueOrDefault("2")))
+                    return;
+            }
+            catch { }
+
+            // Fallback 1: inspect any chips matching _0_(1|2|3) and map by tail
+            try
+            {
+                var chips = card.Locator("button.chips-commons[data-qa*='_0_']");
+                int c = 0; try { c = await chips.CountAsync(); } catch { }
+                for (int i = 0; i < c; i++)
+                {
+                    string dqa = ""; string val = "";
+                    try { dqa = await chips.Nth(i).GetAttributeAsync("data-qa") ?? ""; } catch { }
+                    try
+                    {
+                        var span = chips.Nth(i).Locator("span").First;
+                        if (await span.IsVisibleAsync(new() { Timeout = 600 }))
+                            val = (await span.InnerTextAsync(new() { Timeout = 700 }))?.Trim().Replace(',', '.') ?? "";
+                    }
+                    catch { }
+                    if (string.IsNullOrWhiteSpace(val)) continue;
+
+                    var tail = dqa.Split('_').LastOrDefault();
+                    if (tail == "1") odds["1"] = odds.GetValueOrDefault("1") ?? val;
+                    else if (tail == "2") odds["X"] = odds.GetValueOrDefault("X") ?? val;
+                    else if (tail == "3") odds["2"] = odds.GetValueOrDefault("2") ?? val;
+                }
+            }
+            catch { }
+
+            // Fallback 2: DOM order 1, X, 2 (only if still missing)
+            if (string.IsNullOrWhiteSpace(odds.GetValueOrDefault("1")) ||
+                string.IsNullOrWhiteSpace(odds.GetValueOrDefault("X")) ||
+                string.IsNullOrWhiteSpace(odds.GetValueOrDefault("2")))
+            {
+                try
+                {
+                    var spans = card.Locator(".grid_mg-market__gVuGf").First.Locator("button.chips-commons span");
+                    var vals = await spans.AllInnerTextsAsync();
+                    if (vals.Count >= 1 && string.IsNullOrWhiteSpace(odds.GetValueOrDefault("1"))) odds["1"] = vals[0].Trim().Replace(',', '.');
+                    if (vals.Count >= 2 && string.IsNullOrWhiteSpace(odds.GetValueOrDefault("X"))) odds["X"] = vals[1].Trim().Replace(',', '.');
+                    if (vals.Count >= 3 && string.IsNullOrWhiteSpace(odds.GetValueOrDefault("2"))) odds["2"] = vals[2].Trim().Replace(',', '.');
+                }
+                catch { }
+            }
+        }
 
         // U/O Games – reads the currently displayed total (no dropdown traversal)
         // U/O Games – write nested object under Odds["U/O"]
@@ -1280,7 +1352,7 @@ private async Task AddHockey1X2ForCardAsync(ILocator card, Dictionary<string, st
             return hasAny;
         }
 
-        
+
 
         // Read T/T Handicap odds (current line) for a card; store whichever side(s) exists
         private async Task AddTennisTTHandicapForCardAsync(ILocator match, Dictionary<string, string> tt)
@@ -1357,94 +1429,94 @@ private async Task AddHockey1X2ForCardAsync(ILocator card, Dictionary<string, st
             try { await page.EvaluateAsync(script); } catch { /* best-effort */ }
         }
 
-// --- SOCCER: O/U per-card dropdown reader (no header clicks) ---
-// --- SOCCER: O/U per-card dropdown reader (no header clicks) ---
-// SOCCER: Read O/U from the fixture's OWN dropdown (no header clicks)
-private async Task ReadSoccerOUDropdownForCardAsync(
-    ILocator card,
-    Dictionary<string, Dictionary<string, string>> ou)
-{
-    try
-    {
-        var chips = card.Locator(":scope button.counter-drop-chip-default-theme span");
-        int n = 0; try { n = await chips.CountAsync(); } catch {}
-
-        for (int i = 0; i < n; i++)
+        // --- SOCCER: O/U per-card dropdown reader (no header clicks) ---
+        // --- SOCCER: O/U per-card dropdown reader (no header clicks) ---
+        // SOCCER: Read O/U from the fixture's OWN dropdown (no header clicks)
+        private async Task ReadSoccerOUDropdownForCardAsync(
+            ILocator card,
+            Dictionary<string, Dictionary<string, string>> ou)
         {
-            string raw = "";
-            try { raw = (await chips.Nth(i).InnerTextAsync(new() { Timeout = 400 }))?.Trim() ?? ""; } catch {}
-            if (string.IsNullOrWhiteSpace(raw)) continue;
-
-            var canon = raw.Replace(',', '.');
-            if (!double.TryParse(canon, System.Globalization.NumberStyles.Float,
-                                 System.Globalization.CultureInfo.InvariantCulture, out var v)) continue;
-
-            // Soccer totals are small (0.5–7.5). Only open those.
-            if (v > 9.9) continue;
-
-            var button = chips.Nth(i).Locator("..");
-            try { await button.ScrollIntoViewIfNeededAsync(); } catch {}
-            await button.ClickAsync(new() { Force = true });
-
-            var panel = card.Page.Locator(".drop-list-chips-select-option-container-theme:visible").First;
-            try { await panel.WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 800 }); }
-            catch { break; }
-
-            var rows = panel.Locator("div.select-selected-on-hover-drop-list-chips-theme");
-            int rc = 0; try { rc = await rows.CountAsync(); } catch {}
-
-            for (int r = 0; r < rc; r++)
+            try
             {
-                try
+                var chips = card.Locator(":scope button.counter-drop-chip-default-theme span");
+                int n = 0; try { n = await chips.CountAsync(); } catch { }
+
+                for (int i = 0; i < n; i++)
                 {
-                    var cols = rows.Nth(r).Locator("div.tw-fr-w-full span");
-                    int cc = 0; try { cc = await cols.CountAsync(); } catch {}
-                    if (cc < 2) continue;
+                    string raw = "";
+                    try { raw = (await chips.Nth(i).InnerTextAsync(new() { Timeout = 400 }))?.Trim() ?? ""; } catch { }
+                    if (string.IsNullOrWhiteSpace(raw)) continue;
 
-                    string total = (await cols.Nth(0).InnerTextAsync(new() { Timeout = 350 }))?.Trim() ?? "";
-                    string col1  = cc > 1 ? (await cols.Nth(1).InnerTextAsync(new() { Timeout = 350 }))?.Trim() ?? "" : "";
-                    string col2  = cc > 2 ? (await cols.Nth(2).InnerTextAsync(new() { Timeout = 350 }))?.Trim() ?? "" : "";
+                    var canon = raw.Replace(',', '.');
+                    if (!double.TryParse(canon, System.Globalization.NumberStyles.Float,
+                                         System.Globalization.CultureInfo.InvariantCulture, out var v)) continue;
 
-                    total = total.Replace(',', '.');
-                    col1  = col1.Replace(',', '.');
-                    col2  = col2.Replace(',', '.');
+                    // Soccer totals are small (0.5–7.5). Only open those.
+                    if (v > 9.9) continue;
 
-                    if (string.IsNullOrWhiteSpace(total)) continue;
+                    var button = chips.Nth(i).Locator("..");
+                    try { await button.ScrollIntoViewIfNeededAsync(); } catch { }
+                    await button.ClickAsync(new() { Force = true });
 
-                    // ✅ Correct order for soccer dropdowns:
-                    // col1 = UNDER, col2 = OVER
-                    var row = new Dictionary<string, string>();
-                    if (!string.IsNullOrWhiteSpace(col1)) row["UNDER"] = col1;
-                    if (!string.IsNullOrWhiteSpace(col2)) row["OVER"]  = col2;
+                    var panel = card.Page.Locator(".drop-list-chips-select-option-container-theme:visible").First;
+                    try { await panel.WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 800 }); }
+                    catch { break; }
 
-                    // 🔒 Safety net: If clearly inverted (e.g., O ≫ U at tiny totals),
-                    // swap them once. Triggers only on very low lines (<= 1.5).
-                    if (row.TryGetValue("OVER", out var oTxt) &&
-                        row.TryGetValue("UNDER", out var uTxt) &&
-                        double.TryParse(oTxt, System.Globalization.NumberStyles.Float,
-                                        System.Globalization.CultureInfo.InvariantCulture, out var oVal) &&
-                        double.TryParse(uTxt, System.Globalization.NumberStyles.Float,
-                                        System.Globalization.CultureInfo.InvariantCulture, out var uVal) &&
-                        (total == "0.5" || total == "1.5") &&
-                        oVal > 5.0 && uVal < 1.3)
+                    var rows = panel.Locator("div.select-selected-on-hover-drop-list-chips-theme");
+                    int rc = 0; try { rc = await rows.CountAsync(); } catch { }
+
+                    for (int r = 0; r < rc; r++)
                     {
-                        // swap
-                        row["OVER"]  = uTxt;
-                        row["UNDER"] = oTxt;
+                        try
+                        {
+                            var cols = rows.Nth(r).Locator("div.tw-fr-w-full span");
+                            int cc = 0; try { cc = await cols.CountAsync(); } catch { }
+                            if (cc < 2) continue;
+
+                            string total = (await cols.Nth(0).InnerTextAsync(new() { Timeout = 350 }))?.Trim() ?? "";
+                            string col1 = cc > 1 ? (await cols.Nth(1).InnerTextAsync(new() { Timeout = 350 }))?.Trim() ?? "" : "";
+                            string col2 = cc > 2 ? (await cols.Nth(2).InnerTextAsync(new() { Timeout = 350 }))?.Trim() ?? "" : "";
+
+                            total = total.Replace(',', '.');
+                            col1 = col1.Replace(',', '.');
+                            col2 = col2.Replace(',', '.');
+
+                            if (string.IsNullOrWhiteSpace(total)) continue;
+
+                            // ✅ Correct order for soccer dropdowns:
+                            // col1 = UNDER, col2 = OVER
+                            var row = new Dictionary<string, string>();
+                            if (!string.IsNullOrWhiteSpace(col1)) row["UNDER"] = col1;
+                            if (!string.IsNullOrWhiteSpace(col2)) row["OVER"] = col2;
+
+                            // 🔒 Safety net: If clearly inverted (e.g., O ≫ U at tiny totals),
+                            // swap them once. Triggers only on very low lines (<= 1.5).
+                            if (row.TryGetValue("OVER", out var oTxt) &&
+                                row.TryGetValue("UNDER", out var uTxt) &&
+                                double.TryParse(oTxt, System.Globalization.NumberStyles.Float,
+                                                System.Globalization.CultureInfo.InvariantCulture, out var oVal) &&
+                                double.TryParse(uTxt, System.Globalization.NumberStyles.Float,
+                                                System.Globalization.CultureInfo.InvariantCulture, out var uVal) &&
+                                (total == "0.5" || total == "1.5") &&
+                                oVal > 5.0 && uVal < 1.3)
+                            {
+                                // swap
+                                row["OVER"] = uTxt;
+                                row["UNDER"] = oTxt;
+                            }
+
+                            if (row.Count > 0) ou[total] = row;
+                        }
+                        catch { /* row best-effort */ }
                     }
 
-                    if (row.Count > 0) ou[total] = row;
+                    try { await button.ClickAsync(new() { Force = true }); } catch { }
+                    await card.Page.WaitForTimeoutAsync(80);
+                    break; // only the first totals chip
                 }
-                catch { /* row best-effort */ }
             }
-
-            try { await button.ClickAsync(new() { Force = true }); } catch {}
-            await card.Page.WaitForTimeoutAsync(80);
-            break; // only the first totals chip
+            catch { /* per-card best-effort */ }
         }
-    }
-    catch { /* per-card best-effort */ }
-}
 
 
         private async Task SweepSubcategoryBarWithinAsync(ILocator league)
@@ -1467,34 +1539,34 @@ private async Task ReadSoccerOUDropdownForCardAsync(
         }
 
         // Ensures we're truly in the Rugby section and waits briefly for the page to settle.
-private async Task EnsureRugbyContextAsync(IPage page)
-{
-    try
-    {
-        await Task.WhenAny(
-            page.WaitForURLAsync(u => u.ToString().Contains("/scommesse-matchpoint/sport/rugby", StringComparison.OrdinalIgnoreCase), new() { Timeout = 7000 }),
-            page.WaitForTimeoutAsync(800)
-        );
-    }
-    catch { }
+        private async Task EnsureRugbyContextAsync(IPage page)
+        {
+            try
+            {
+                await Task.WhenAny(
+                    page.WaitForURLAsync(u => u.ToString().Contains("/scommesse-matchpoint/sport/rugby", StringComparison.OrdinalIgnoreCase), new() { Timeout = 7000 }),
+                    page.WaitForTimeoutAsync(800)
+                );
+            }
+            catch { }
 
-    await page.WaitForTimeoutAsync(400);
-    await WaitForCalmAsync(page);
-}
+            await page.WaitForTimeoutAsync(400);
+            await WaitForCalmAsync(page);
+        }
 
-// Try to show the Rugby "league tiles" (Competizioni/Campionati tab). Idempotent.
-private async Task TryOpenRugbyLeagueGridAsync(IPage page)
-{
-    var rugbyLeagueTiles = page.Locator("a[data-qa^='manifestazione_12_'], a[href*='/scommesse-matchpoint/evento/rugby/']");
-    try
-    {
-        if (await rugbyLeagueTiles.CountAsync() > 0) return; // already visible
-    }
-    catch { }
+        // Try to show the Rugby "league tiles" (Competizioni/Campionati tab). Idempotent.
+        private async Task TryOpenRugbyLeagueGridAsync(IPage page)
+        {
+            var rugbyLeagueTiles = page.Locator("a[data-qa^='manifestazione_12_'], a[href*='/scommesse-matchpoint/evento/rugby/']");
+            try
+            {
+                if (await rugbyLeagueTiles.CountAsync() > 0) return; // already visible
+            }
+            catch { }
 
-    // Switch away from "In evidenza" to a competitions tab if present
-    var candidates = new[]
-    {
+            // Switch away from "In evidenza" to a competitions tab if present
+            var candidates = new[]
+            {
         "button:has-text('Competizioni')",
         "button:has-text('Campionati')",
         "button[data-qa='cluster-filter-2']",
@@ -1502,149 +1574,149 @@ private async Task TryOpenRugbyLeagueGridAsync(IPage page)
         "button[data-qa='cluster-filter-0']"
     };
 
-    foreach (var sel in candidates)
-    {
-        try
-        {
-            var btn = page.Locator(sel).First;
-            if (await btn.IsVisibleAsync(new() { Timeout = 800 }))
+            foreach (var sel in candidates)
             {
-                await btn.ScrollIntoViewIfNeededAsync();
-                await btn.ClickAsync(new() { Force = true });
-                await WaitForCalmAsync(page);
+                try
+                {
+                    var btn = page.Locator(sel).First;
+                    if (await btn.IsVisibleAsync(new() { Timeout = 800 }))
+                    {
+                        await btn.ScrollIntoViewIfNeededAsync();
+                        await btn.ClickAsync(new() { Force = true });
+                        await WaitForCalmAsync(page);
 
-                if (await rugbyLeagueTiles.CountAsync() > 0) return;
+                        if (await rugbyLeagueTiles.CountAsync() > 0) return;
+                    }
+                }
+                catch { /* try next */ }
             }
+
+            // Nudge scroll to trigger lazy render
+            try { await page.EvaluateAsync("() => window.scrollBy(0, Math.max(800, window.innerHeight))"); } catch { }
+            await page.WaitForTimeoutAsync(300);
+
+            try
+            {
+                int finalCount = await rugbyLeagueTiles.CountAsync();
+                Console.WriteLine($"[Rugby] league-grid probe after tab switch: {finalCount} tiles detected.");
+            }
+            catch { }
         }
-        catch { /* try next */ }
-    }
-
-    // Nudge scroll to trigger lazy render
-    try { await page.EvaluateAsync("() => window.scrollBy(0, Math.max(800, window.innerHeight))"); } catch { }
-    await page.WaitForTimeoutAsync(300);
-
-    try
-    {
-        int finalCount = await rugbyLeagueTiles.CountAsync();
-        Console.WriteLine($"[Rugby] league-grid probe after tab switch: {finalCount} tiles detected.");
-    }
-    catch { }
-}
 
 
         // When countries are not visible and only league tiles are shown (Rugby = sport id 3)
 
-// When countries are not visible and only league tiles are shown (Rugby = sport id 3)
-// When countries are not visible and only league tiles are shown (Rugby = sport id 12)
-private async Task ClickLeaguesAndExtractRugbyAsync(IPage page, string sportName)
-{
-    var leagues = page.Locator("a[data-qa^='manifestazione_12_']");
-    int count = 0;
-    try { count = await leagues.CountAsync(); } catch { }
-
-    Console.WriteLine($"[Rugby] League tiles detected: {count}");
-    for (int i = 0; i < count; i++)
-    {
-        var lg = leagues.Nth(i);
-
-        // Read a friendly league label if available
-        string leagueName = "(league)";
-        try
+        // When countries are not visible and only league tiles are shown (Rugby = sport id 3)
+        // When countries are not visible and only league tiles are shown (Rugby = sport id 12)
+        private async Task ClickLeaguesAndExtractRugbyAsync(IPage page, string sportName)
         {
-            var nameSpan = lg.Locator("span.tw-fr-text-paragraph-s").First;
-            if (await nameSpan.IsVisibleAsync(new() { Timeout = 700 }))
-                leagueName = (await nameSpan.InnerTextAsync(new() { Timeout = 800 }))?.Trim() ?? leagueName;
+            var leagues = page.Locator("a[data-qa^='manifestazione_12_']");
+            int count = 0;
+            try { count = await leagues.CountAsync(); } catch { }
+
+            Console.WriteLine($"[Rugby] League tiles detected: {count}");
+            for (int i = 0; i < count; i++)
+            {
+                var lg = leagues.Nth(i);
+
+                // Read a friendly league label if available
+                string leagueName = "(league)";
+                try
+                {
+                    var nameSpan = lg.Locator("span.tw-fr-text-paragraph-s").First;
+                    if (await nameSpan.IsVisibleAsync(new() { Timeout = 700 }))
+                        leagueName = (await nameSpan.InnerTextAsync(new() { Timeout = 800 }))?.Trim() ?? leagueName;
+                }
+                catch { }
+
+                Console.WriteLine($"> Opening league: {leagueName}");
+                await HandleAllBlockers(page);
+                try { await lg.ScrollIntoViewIfNeededAsync(); } catch { }
+                await lg.ClickAsync(new() { Force = true });
+                await HandleAllBlockers(page);
+
+                // Wait briefly for fixtures or an empty state; don't click any tabs/filters
+                await Task.WhenAny(
+                    page.Locator(".grid_mg-row-wrapper__usTh4").First.WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 6000 }),
+                    page.Locator(":text-matches('Nessun|Nessuna|Non ci sono|No events|No matches','i')").First.WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 6000 }),
+                    page.WaitForTimeoutAsync(1200)
+                );
+
+                // 1-X-2 only, then move on to the next league
+                await ExtractRugbyOddsAsync(page, sportName, leagueName);
+
+                // DO NOT: click handicap/other markets; just continue to next tile
+            }
+
+            // After iterating every league, simply return to caller.
+            return;
         }
-        catch { }
-
-        Console.WriteLine($"> Opening league: {leagueName}");
-        await HandleAllBlockers(page);
-        try { await lg.ScrollIntoViewIfNeededAsync(); } catch { }
-        await lg.ClickAsync(new() { Force = true });
-        await HandleAllBlockers(page);
-
-        // Wait briefly for fixtures or an empty state; don't click any tabs/filters
-        await Task.WhenAny(
-            page.Locator(".grid_mg-row-wrapper__usTh4").First.WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 6000 }),
-            page.Locator(":text-matches('Nessun|Nessuna|Non ci sono|No events|No matches','i')").First.WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 6000 }),
-            page.WaitForTimeoutAsync(1200)
-        );
-
-        // 1-X-2 only, then move on to the next league
-        await ExtractRugbyOddsAsync(page, sportName, leagueName);
-
-        // DO NOT: click handicap/other markets; just continue to next tile
-    }
-
-    // After iterating every league, simply return to caller.
-    return;
-}
 
 
-// Helper: try to read a friendly league name from a league tile
-private async Task<string> TryGetLeagueNameAsync(ILocator leagueTile)
-{
-    // 1) Preferred label
-    try
-    {
-        var nameSpan = leagueTile.Locator("span.tw-fr-text-paragraph-s").First;
-        if (await nameSpan.IsVisibleAsync(new() { Timeout = 500 }))
+        // Helper: try to read a friendly league name from a league tile
+        private async Task<string> TryGetLeagueNameAsync(ILocator leagueTile)
         {
-            var t = (await nameSpan.InnerTextAsync(new() { Timeout = 600 }))?.Trim();
-            if (!string.IsNullOrWhiteSpace(t)) return t;
+            // 1) Preferred label
+            try
+            {
+                var nameSpan = leagueTile.Locator("span.tw-fr-text-paragraph-s").First;
+                if (await nameSpan.IsVisibleAsync(new() { Timeout = 500 }))
+                {
+                    var t = (await nameSpan.InnerTextAsync(new() { Timeout = 600 }))?.Trim();
+                    if (!string.IsNullOrWhiteSpace(t)) return t;
+                }
+            }
+            catch { }
+
+            // 2) Aria labels often contain something useful
+            try
+            {
+                var aria = await leagueTile.GetAttributeAsync("aria-label");
+                if (!string.IsNullOrWhiteSpace(aria)) return aria.Trim();
+            }
+            catch { }
+
+            // 3) Fallback: visible text of the tile
+            try
+            {
+                var t = (await leagueTile.InnerTextAsync(new() { Timeout = 600 }))?.Trim();
+                if (!string.IsNullOrWhiteSpace(t)) return t;
+            }
+            catch { }
+
+            return "Rugby";
         }
-    }
-    catch { }
 
-    // 2) Aria labels often contain something useful
-    try
-    {
-        var aria = await leagueTile.GetAttributeAsync("aria-label");
-        if (!string.IsNullOrWhiteSpace(aria)) return aria.Trim();
-    }
-    catch { }
+        // Open ONLY the first visible rugby league and scrape 1-X-2 (no other clicks)
+        private async Task ClickSingleRugbyLeagueAndExtract1X2Async(IPage page, string sportName)
+        {
+            // First visible rugby league tile
+            var firstLeague = page.Locator("a[data-qa^='manifestazione_12_']:visible").First;
 
-    // 3) Fallback: visible text of the tile
-    try
-    {
-        var t = (await leagueTile.InnerTextAsync(new() { Timeout = 600 }))?.Trim();
-        if (!string.IsNullOrWhiteSpace(t)) return t;
-    }
-    catch { }
+            if (!await firstLeague.IsVisibleAsync(new() { Timeout = 2500 }))
+            {
+                Console.WriteLine("[Rugby] No visible league tile found. Nothing to do.");
+                return;
+            }
 
-    return "Rugby";
-}
+            string leagueName = await TryGetLeagueNameAsync(firstLeague);
+            Console.WriteLine($"> Opening league: {leagueName}");
 
-// Open ONLY the first visible rugby league and scrape 1-X-2 (no other clicks)
-private async Task ClickSingleRugbyLeagueAndExtract1X2Async(IPage page, string sportName)
-{
-    // First visible rugby league tile
-    var firstLeague = page.Locator("a[data-qa^='manifestazione_12_']:visible").First;
+            await HandleAllBlockers(page);
+            try { await firstLeague.ScrollIntoViewIfNeededAsync(); } catch { }
+            await firstLeague.ClickAsync(new() { Force = true });
+            await HandleAllBlockers(page);
 
-    if (!await firstLeague.IsVisibleAsync(new() { Timeout = 2500 }))
-    {
-        Console.WriteLine("[Rugby] No visible league tile found. Nothing to do.");
-        return;
-    }
+            // Wait for either fixtures or an empty state
+            await Task.WhenAny(
+                page.Locator(".grid_mg-row-wrapper__usTh4").First.WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 6000 }),
+                page.Locator(":text-matches('Nessun|Nessuna|Non ci sono|No events|No matches','i')").First.WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 6000 }),
+                page.WaitForTimeoutAsync(1500)
+            );
 
-    string leagueName = await TryGetLeagueNameAsync(firstLeague);
-    Console.WriteLine($"> Opening league: {leagueName}");
-
-    await HandleAllBlockers(page);
-    try { await firstLeague.ScrollIntoViewIfNeededAsync(); } catch { }
-    await firstLeague.ClickAsync(new() { Force = true });
-    await HandleAllBlockers(page);
-
-    // Wait for either fixtures or an empty state
-    await Task.WhenAny(
-        page.Locator(".grid_mg-row-wrapper__usTh4").First.WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 6000 }),
-        page.Locator(":text-matches('Nessun|Nessuna|Non ci sono|No events|No matches','i')").First.WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 6000 }),
-        page.WaitForTimeoutAsync(1500)
-    );
-
-    // IMPORTANT: we only read inline 1-X-2; ExtractRugbyOddsAsync does not click anything
-    await ExtractRugbyOddsAsync(page, sportName, leagueName);
-}
+            // IMPORTANT: we only read inline 1-X-2; ExtractRugbyOddsAsync does not click anything
+            await ExtractRugbyOddsAsync(page, sportName, leagueName);
+        }
 
         // When countries are not visible and only league tiles are shown (American Football = sport id 10)
         private async Task ClickLeaguesAndExtractAmericanFootballAsync(IPage page, string sportName)
@@ -1681,337 +1753,343 @@ private async Task ClickSingleRugbyLeagueAndExtract1X2Async(IPage page, string s
                 await ExtractAmericanFootballOddsAsync(page, sportName, leagueName);
             }
         }
-// --- American Football DTO (moneyline + spread + totals, inline) ---
-public class AmericanFootballFixture
-{
-    public string Teams { get; set; } = string.Empty;
-
-    public Dictionary<string, string> Odds { get; set; } = new()
-    {
-        ["1"] = "",
-        ["2"] = ""
-    };
-
-    [JsonPropertyName("TT + Handicap")]
-    public Dictionary<string, Dictionary<string, string>> TTPlusHandicap { get; set; } = new();
-
-    [JsonPropertyName("O/U")]
-    public Dictionary<string, Dictionary<string, string>> OU { get; set; } = new();
-}
-private async Task ExtractAmericanFootballOddsAsync(IPage page, string sportName, string countryOrLeague)
-{
-    Console.WriteLine($"  🏈 [American Football] Extracting odds for {sportName} - {countryOrLeague}...");
-
-    var fixturesOut = new List<AmericanFootballFixture>();
-    var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-    var cards = page.Locator(".grid_mg-row-wrapper__usTh4");
-
-    // Probe briefly (some groups may be empty)
-    int matchCount = 0;
-    for (int spin = 0; spin < 10; spin++)
-    {
-        try { matchCount = await cards.CountAsync(); } catch { matchCount = 0; }
-        if (matchCount > 0) break;
-
-        try
+        // --- American Football DTO (moneyline + spread + totals, inline) ---
+        public class AmericanFootballFixture
         {
-            var empty = page.Locator(":text-matches('Nessun|Nessuna|Non ci sono|No events|No matches','i')");
-            if (await empty.CountAsync() > 0) break;
-        }
-        catch { }
+            public string Teams { get; set; } = string.Empty;
 
-        await page.WaitForTimeoutAsync(300);
-    }
-
-    if (matchCount == 0)
-    {
-        Console.WriteLine($"  • [American Football] No fixtures visible for {countryOrLeague}; skipping.");
-        return;
-    }
-
-    Console.WriteLine($"  • [American Football] Found {matchCount} fixtures (pre-filter).");
-
-    for (int i = 0; i < matchCount; i++)
-    {
-        var card = cards.Nth(i);
-
-        // Skip live/in-play
-        bool isLive = false;
-        try
-        {
-            if (await card.Locator(".live, .badge-live, .inplay, .live-badge, [data-live='true']").CountAsync() > 0)
-                isLive = true;
-            else
+            public Dictionary<string, string> Odds { get; set; } = new()
             {
-                var t = "";
-                try { t = (await card.InnerTextAsync(new() { Timeout = 300 })).ToLower(); } catch { }
-                if (t.Contains("live") || t.Contains("in play") || t.Contains("in-play")) isLive = true;
-            }
+                ["1"] = "",
+                ["2"] = ""
+            };
+
+            [JsonPropertyName("TT + Handicap")]
+            public Dictionary<string, Dictionary<string, string>> TTPlusHandicap { get; set; } = new();
+
+            [JsonPropertyName("O/U")]
+            public Dictionary<string, Dictionary<string, string>> OU { get; set; } = new();
         }
-        catch { }
-        if (isLive) continue;
-
-        // Teams
-        List<string> teams;
-        try { teams = new List<string>(await card.Locator("a.regulator_description__SY8Vw span").AllInnerTextsAsync()); }
-        catch { continue; }
-        if (teams.Count < 2) continue;
-
-        string home = teams[0].Trim();
-        string away = teams[1].Trim();
-        string key = $"{home} vs {away}";
-        if (!seen.Add(key)) continue;
-
-        // Ensure virtualization renders odds
-        try { await card.ScrollIntoViewIfNeededAsync(); } catch { }
-        try { await page.Mouse.WheelAsync(0, 400); } catch { }
-        await page.WaitForTimeoutAsync(80);
-
-        var fx = new AmericanFootballFixture { Teams = key };
-
-        // 1–2 moneyline (inline)
-        await AddAmericanFootball12ForCardAsync(card, fx.Odds);
-
-        // Inline spreads and totals (no dropdowns, no header tabs)
-        await ReadAFInlineSpreadForCardAsync(card, fx.TTPlusHandicap);
-        await ReadAFInlineTotalsForCardAsync(card, fx.OU);
-
-        fixturesOut.Add(fx);
-        Console.WriteLine($"    🏈 {key} | 1:{fx.Odds.GetValueOrDefault("1")} 2:{fx.Odds.GetValueOrDefault("2")} | TT+H:{fx.TTPlusHandicap.Count} | O/U:{fx.OU.Count}");
-    }
-
- // --- Export per country/league (American Football) unified ---
-var unified = new List<UnifiedOddsRecord>();
-foreach (var fx in fixturesOut)
-{
-    var ml = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-    if (!string.IsNullOrWhiteSpace(fx.Odds.GetValueOrDefault("1"))) ml["1"] = fx.Odds["1"];
-    if (!string.IsNullOrWhiteSpace(fx.Odds.GetValueOrDefault("2"))) ml["2"] = fx.Odds["2"];
-
-    unified.Add(BuildUnified(sportName, fx.Teams, ml, fx.OU, fx.TTPlusHandicap));
-}
-await ExportUnifiedAsync(sportName, countryOrLeague, unified);
-}
-// 1–2 moneyline for American Football (inline chips)
-private async Task AddAmericanFootball12ForCardAsync(ILocator match, Dictionary<string, string> odds)
-{
-    try
-    {
-        var one = match.Locator("button.chips-commons[data-qa$='_0_1'] span").First;
-        var two = match.Locator("button.chips-commons[data-qa$='_0_2'] span").First;
-
-        if (await one.IsVisibleAsync(new() { Timeout = 800 }))
+        private async Task ExtractAmericanFootballOddsAsync(IPage page, string sportName, string countryOrLeague)
         {
-            var t = (await one.InnerTextAsync(new() { Timeout = 900 }))?.Trim();
-            if (!string.IsNullOrWhiteSpace(t)) odds["1"] = t.Replace(',', '.');
-        }
-        if (await two.IsVisibleAsync(new() { Timeout = 800 }))
-        {
-            var t = (await two.InnerTextAsync(new() { Timeout = 900 }))?.Trim();
-            if (!string.IsNullOrWhiteSpace(t)) odds["2"] = t.Replace(',', '.');
-        }
-    }
-    catch { }
+            Console.WriteLine($"  🏈 [American Football] Extracting odds for {sportName} - {countryOrLeague}...");
 
-    // Fallback to first group → first two chips
-    if (string.IsNullOrWhiteSpace(odds.GetValueOrDefault("1")) || string.IsNullOrWhiteSpace(odds.GetValueOrDefault("2")))
-    {
-        try
-        {
-            var chips = match.Locator(".grid_mg-market__gVuGf").First.Locator("button.chips-commons span");
-            if (await chips.CountAsync() >= 2)
+            var fixturesOut = new List<AmericanFootballFixture>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            var cards = page.Locator(".grid_mg-row-wrapper__usTh4");
+
+            // Probe briefly (some groups may be empty)
+            int matchCount = 0;
+            for (int spin = 0; spin < 10; spin++)
             {
-                if (string.IsNullOrWhiteSpace(odds.GetValueOrDefault("1")))
+                try { matchCount = await cards.CountAsync(); } catch { matchCount = 0; }
+                if (matchCount > 0) break;
+
+                try
                 {
-                    var t = (await chips.Nth(0).InnerTextAsync(new() { Timeout = 700 }))?.Trim();
+                    var empty = page.Locator(":text-matches('Nessun|Nessuna|Non ci sono|No events|No matches','i')");
+                    if (await empty.CountAsync() > 0) break;
+                }
+                catch { }
+
+                await page.WaitForTimeoutAsync(300);
+            }
+
+            if (matchCount == 0)
+            {
+                Console.WriteLine($"  • [American Football] No fixtures visible for {countryOrLeague}; skipping.");
+                return;
+            }
+
+            Console.WriteLine($"  • [American Football] Found {matchCount} fixtures (pre-filter).");
+
+            for (int i = 0; i < matchCount; i++)
+            {
+                var card = cards.Nth(i);
+
+                // Skip live/in-play
+                bool isLive = false;
+                try
+                {
+                    if (await card.Locator(".live, .badge-live, .inplay, .live-badge, [data-live='true']").CountAsync() > 0)
+                        isLive = true;
+                    else
+                    {
+                        var t = "";
+                        try { t = (await card.InnerTextAsync(new() { Timeout = 300 })).ToLower(); } catch { }
+                        if (t.Contains("live") || t.Contains("in play") || t.Contains("in-play")) isLive = true;
+                    }
+                }
+                catch { }
+                if (isLive) continue;
+
+                // Teams
+                List<string> teams;
+                try { teams = new List<string>(await card.Locator("a.regulator_description__SY8Vw span").AllInnerTextsAsync()); }
+                catch { continue; }
+                if (teams.Count < 2) continue;
+
+                string home = teams[0].Trim();
+                string away = teams[1].Trim();
+                string key = $"{home} vs {away}";
+                if (!seen.Add(key)) continue;
+
+                // Ensure virtualization renders odds
+                try { await card.ScrollIntoViewIfNeededAsync(); } catch { }
+                try { await page.Mouse.WheelAsync(0, 400); } catch { }
+                await page.WaitForTimeoutAsync(80);
+
+                var fx = new AmericanFootballFixture { Teams = key };
+
+                // 1–2 moneyline (inline)
+                await AddAmericanFootball12ForCardAsync(card, fx.Odds);
+
+                // Inline spreads and totals (no dropdowns, no header tabs)
+                await ReadAFInlineSpreadForCardAsync(card, fx.TTPlusHandicap);
+                await ReadAFInlineTotalsForCardAsync(card, fx.OU);
+
+                fixturesOut.Add(fx);
+                Console.WriteLine($"    🏈 {key} | 1:{fx.Odds.GetValueOrDefault("1")} 2:{fx.Odds.GetValueOrDefault("2")} | TT+H:{fx.TTPlusHandicap.Count} | O/U:{fx.OU.Count}");
+            }
+
+            // --- Export per country/league (American Football) unified ---
+            var unified = new List<UnifiedOddsRecord>();
+            foreach (var fx in fixturesOut)
+            {
+                var ml = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                if (!string.IsNullOrWhiteSpace(fx.Odds.GetValueOrDefault("1"))) ml["1"] = fx.Odds["1"];
+                if (!string.IsNullOrWhiteSpace(fx.Odds.GetValueOrDefault("2"))) ml["2"] = fx.Odds["2"];
+
+                unified.Add(BuildUnified(sportName, fx.Teams, ml, fx.OU, fx.TTPlusHandicap));
+            }
+            await ExportUnifiedAsync(sportName, countryOrLeague, unified);
+            var merged = unified.Select(FromUnified).ToList();
+            await PostSisalLikeEurobetAsync(sportName, merged);
+        }
+        // 1–2 moneyline for American Football (inline chips)
+        private async Task AddAmericanFootball12ForCardAsync(ILocator match, Dictionary<string, string> odds)
+        {
+            try
+            {
+                var one = match.Locator("button.chips-commons[data-qa$='_0_1'] span").First;
+                var two = match.Locator("button.chips-commons[data-qa$='_0_2'] span").First;
+
+                if (await one.IsVisibleAsync(new() { Timeout = 800 }))
+                {
+                    var t = (await one.InnerTextAsync(new() { Timeout = 900 }))?.Trim();
                     if (!string.IsNullOrWhiteSpace(t)) odds["1"] = t.Replace(',', '.');
                 }
-                if (string.IsNullOrWhiteSpace(odds.GetValueOrDefault("2")))
+                if (await two.IsVisibleAsync(new() { Timeout = 800 }))
                 {
-                    var t = (await chips.Nth(1).InnerTextAsync(new() { Timeout = 700 }))?.Trim();
+                    var t = (await two.InnerTextAsync(new() { Timeout = 900 }))?.Trim();
                     if (!string.IsNullOrWhiteSpace(t)) odds["2"] = t.Replace(',', '.');
                 }
             }
-        }
-        catch { }
-    }
-}
-
-// Inline Spread reader: look for market blocks with "HANDICAP", "SPREAD", or "TESTA A TESTA HANDICAP"
-// Inline Spread (TT + Handicap) for American Football using your exact selectors.
-// Looks for cells that have line in ".counter-drop-chip-default-theme span"
-// and odds in ".chips-commons" with data-qa "..._26_..._(1|2)" (26 = Handicap).
-private async Task ReadAFInlineSpreadForCardAsync(ILocator card, Dictionary<string, Dictionary<string, string>> tt)
-{
-    try
-    {
-        // Each market row/cell (spread or totals)
-        var cells = card.Locator(".marketAttributeSelectorCellCommon_mg-market-attribute-selector-cell__ISAm1");
-        int count = 0;
-        try { count = await cells.CountAsync(); } catch { }
-
-        for (int i = 0; i < count; i++)
-        {
-            var cell = cells.Nth(i);
-
-            // 1) Read the line (e.g., "-2.5")
-            string line = "";
-            try
-            {
-                var lineSpan = cell.Locator(".counter-drop-chip-default-theme span").First;
-                if (await lineSpan.IsVisibleAsync(new() { Timeout = 700 }))
-                    line = (await lineSpan.InnerTextAsync(new() { Timeout = 800 }))?.Trim().Replace(',', '.') ?? "";
-            }
             catch { }
 
-            if (string.IsNullOrWhiteSpace(line)) continue;
-
-            // 2) Confirm this cell is a SPREAD via data-qa marker (_26_ = Handicap)
-            // We peek the first chips-commons in the cell and inspect its data-qa
-            var chips = cell.Locator("button.chips-commons");
-            int chipCount = 0;
-            try { chipCount = await chips.CountAsync(); } catch { }
-
-            if (chipCount < 2) continue; // need at least two outcome chips
-
-            string dqa0 = "", dqa1 = "";
-            try { dqa0 = await chips.Nth(0).GetAttributeAsync("data-qa") ?? ""; } catch { }
-            try { dqa1 = await chips.Nth(1).GetAttributeAsync("data-qa") ?? ""; } catch { }
-
-            bool looksSpread = (dqa0.Contains("_26_") || dqa1.Contains("_26_")); // 26 = Handicap
-            if (!looksSpread) continue; // not a spread cell; skip (Totals reader will handle it)
-
-            // 3) Read the odds from the two chips; map data-qa tail ..._1 -> "1", ..._2 -> "2"
-            string odd1 = "", odd2 = "";
-
-            try
+            // Fallback to first group → first two chips
+            if (string.IsNullOrWhiteSpace(odds.GetValueOrDefault("1")) || string.IsNullOrWhiteSpace(odds.GetValueOrDefault("2")))
             {
-                var span0 = chips.Nth(0).Locator("span").First;
-                if (await span0.IsVisibleAsync(new() { Timeout = 600 }))
-                    odd1 = (await span0.InnerTextAsync(new() { Timeout = 700 }))?.Trim().Replace(',', '.') ?? "";
-            } catch { }
-
-            try
-            {
-                var span1 = chips.Nth(1).Locator("span").First;
-                if (await span1.IsVisibleAsync(new() { Timeout = 600 }))
-                    odd2 = (await span1.InnerTextAsync(new() { Timeout = 700 }))?.Trim().Replace(',', '.') ?? "";
-            } catch { }
-
-            // Ensure we place them under the line key
-            if (!string.IsNullOrWhiteSpace(odd1) || !string.IsNullOrWhiteSpace(odd2))
-            {
-                // Initialize line bucket
-                if (!tt.TryGetValue(line, out var obj))
+                try
                 {
-                    obj = new Dictionary<string, string>();
-                    tt[line] = obj;
+                    var chips = match.Locator(".grid_mg-market__gVuGf").First.Locator("button.chips-commons span");
+                    if (await chips.CountAsync() >= 2)
+                    {
+                        if (string.IsNullOrWhiteSpace(odds.GetValueOrDefault("1")))
+                        {
+                            var t = (await chips.Nth(0).InnerTextAsync(new() { Timeout = 700 }))?.Trim();
+                            if (!string.IsNullOrWhiteSpace(t)) odds["1"] = t.Replace(',', '.');
+                        }
+                        if (string.IsNullOrWhiteSpace(odds.GetValueOrDefault("2")))
+                        {
+                            var t = (await chips.Nth(1).InnerTextAsync(new() { Timeout = 700 }))?.Trim();
+                            if (!string.IsNullOrWhiteSpace(t)) odds["2"] = t.Replace(',', '.');
+                        }
+                    }
                 }
-
-                // Use the _..._(1|2) tail to map if available; otherwise fallback by order
-                string tail0 = dqa0.Split('_').LastOrDefault() ?? "";
-                string tail1 = dqa1.Split('_').LastOrDefault() ?? "";
-
-                if (tail0 == "1" && !string.IsNullOrWhiteSpace(odd1)) obj["1"] = odd1;
-                if (tail0 == "2" && !string.IsNullOrWhiteSpace(odd1)) obj["2"] = odd1;
-
-                if (tail1 == "1" && !string.IsNullOrWhiteSpace(odd2)) obj["1"] = odd2;
-                if (tail1 == "2" && !string.IsNullOrWhiteSpace(odd2)) obj["2"] = odd2;
-
-                // Fallback mapping by order if tails weren’t readable
-                if (!obj.ContainsKey("1") && !string.IsNullOrWhiteSpace(odd1)) obj["1"] = odd1;
-                if (!obj.ContainsKey("2") && !string.IsNullOrWhiteSpace(odd2)) obj["2"] = odd2;
+                catch { }
             }
         }
-    }
-    catch { /* cell-level best-effort */ }
-}
 
-
-// Inline Totals (O/U) for American Football using your exact selectors.
-// Looks for cells that have line in ".counter-drop-chip-default-theme span"
-// and odds in ".chips-commons" with data-qa "..._14863_..._(1|2)" (14863 = Totals).
-private async Task ReadAFInlineTotalsForCardAsync(ILocator card, Dictionary<string, Dictionary<string, string>> ou)
-{
-    try
-    {
-        var cells = card.Locator(".marketAttributeSelectorCellCommon_mg-market-attribute-selector-cell__ISAm1");
-        int count = 0;
-        try { count = await cells.CountAsync(); } catch { }
-
-        for (int i = 0; i < count; i++)
+        // Inline Spread reader: look for market blocks with "HANDICAP", "SPREAD", or "TESTA A TESTA HANDICAP"
+        // Inline Spread (TT + Handicap) for American Football using your exact selectors.
+        // Looks for cells that have line in ".counter-drop-chip-default-theme span"
+        // and odds in ".chips-commons" with data-qa "..._26_..._(1|2)" (26 = Handicap).
+        private async Task ReadAFInlineSpreadForCardAsync(ILocator card, Dictionary<string, Dictionary<string, string>> tt)
         {
-            var cell = cells.Nth(i);
-
-            // 1) Read the line (e.g., "51.5")
-            string line = "";
             try
             {
-                var lineSpan = cell.Locator(".counter-drop-chip-default-theme span").First;
-                if (await lineSpan.IsVisibleAsync(new() { Timeout = 700 }))
-                    line = (await lineSpan.InnerTextAsync(new() { Timeout = 800 }))?.Trim().Replace(',', '.') ?? "";
+                // Each market row/cell (spread or totals)
+                var cells = card.Locator(".marketAttributeSelectorCellCommon_mg-market-attribute-selector-cell__ISAm1");
+                int count = 0;
+                try { count = await cells.CountAsync(); } catch { }
+
+                for (int i = 0; i < count; i++)
+                {
+                    var cell = cells.Nth(i);
+
+                    // 1) Read the line (e.g., "-2.5")
+                    string line = "";
+                    try
+                    {
+                        var lineSpan = cell.Locator(".counter-drop-chip-default-theme span").First;
+                        if (await lineSpan.IsVisibleAsync(new() { Timeout = 700 }))
+                            line = (await lineSpan.InnerTextAsync(new() { Timeout = 800 }))?.Trim().Replace(',', '.') ?? "";
+                    }
+                    catch { }
+
+                    if (string.IsNullOrWhiteSpace(line)) continue;
+
+                    // 2) Confirm this cell is a SPREAD via data-qa marker (_26_ = Handicap)
+                    // We peek the first chips-commons in the cell and inspect its data-qa
+                    var chips = cell.Locator("button.chips-commons");
+                    int chipCount = 0;
+                    try { chipCount = await chips.CountAsync(); } catch { }
+
+                    if (chipCount < 2) continue; // need at least two outcome chips
+
+                    string dqa0 = "", dqa1 = "";
+                    try { dqa0 = await chips.Nth(0).GetAttributeAsync("data-qa") ?? ""; } catch { }
+                    try { dqa1 = await chips.Nth(1).GetAttributeAsync("data-qa") ?? ""; } catch { }
+
+                    bool looksSpread = (dqa0.Contains("_26_") || dqa1.Contains("_26_")); // 26 = Handicap
+                    if (!looksSpread) continue; // not a spread cell; skip (Totals reader will handle it)
+
+                    // 3) Read the odds from the two chips; map data-qa tail ..._1 -> "1", ..._2 -> "2"
+                    string odd1 = "", odd2 = "";
+
+                    try
+                    {
+                        var span0 = chips.Nth(0).Locator("span").First;
+                        if (await span0.IsVisibleAsync(new() { Timeout = 600 }))
+                            odd1 = (await span0.InnerTextAsync(new() { Timeout = 700 }))?.Trim().Replace(',', '.') ?? "";
+                    }
+                    catch { }
+
+                    try
+                    {
+                        var span1 = chips.Nth(1).Locator("span").First;
+                        if (await span1.IsVisibleAsync(new() { Timeout = 600 }))
+                            odd2 = (await span1.InnerTextAsync(new() { Timeout = 700 }))?.Trim().Replace(',', '.') ?? "";
+                    }
+                    catch { }
+
+                    // Ensure we place them under the line key
+                    if (!string.IsNullOrWhiteSpace(odd1) || !string.IsNullOrWhiteSpace(odd2))
+                    {
+                        // Initialize line bucket
+                        if (!tt.TryGetValue(line, out var obj))
+                        {
+                            obj = new Dictionary<string, string>();
+                            tt[line] = obj;
+                        }
+
+                        // Use the _..._(1|2) tail to map if available; otherwise fallback by order
+                        string tail0 = dqa0.Split('_').LastOrDefault() ?? "";
+                        string tail1 = dqa1.Split('_').LastOrDefault() ?? "";
+
+                        if (tail0 == "1" && !string.IsNullOrWhiteSpace(odd1)) obj["1"] = odd1;
+                        if (tail0 == "2" && !string.IsNullOrWhiteSpace(odd1)) obj["2"] = odd1;
+
+                        if (tail1 == "1" && !string.IsNullOrWhiteSpace(odd2)) obj["1"] = odd2;
+                        if (tail1 == "2" && !string.IsNullOrWhiteSpace(odd2)) obj["2"] = odd2;
+
+                        // Fallback mapping by order if tails weren’t readable
+                        if (!obj.ContainsKey("1") && !string.IsNullOrWhiteSpace(odd1)) obj["1"] = odd1;
+                        if (!obj.ContainsKey("2") && !string.IsNullOrWhiteSpace(odd2)) obj["2"] = odd2;
+                    }
+                }
             }
-            catch { }
-
-            if (string.IsNullOrWhiteSpace(line)) continue;
-
-            // 2) Confirm this cell is TOTALS via data-qa marker (_14863_ = Totals)
-            var chips = cell.Locator("button.chips-commons");
-            int chipCount = 0;
-            try { chipCount = await chips.CountAsync(); } catch { }
-
-            if (chipCount < 2) continue;
-
-            string dqa0 = "", dqa1 = "";
-            try { dqa0 = await chips.Nth(0).GetAttributeAsync("data-qa") ?? ""; } catch { }
-            try { dqa1 = await chips.Nth(1).GetAttributeAsync("data-qa") ?? ""; } catch { }
-
-            bool looksTotals = (dqa0.Contains("_14863_") || dqa1.Contains("_14863_")); // 14863 = O/U
-            if (!looksTotals) continue; // not a totals cell; spread reader will handle it
-
-            // 3) Read the two odds
-            string v0 = "", v1 = "";
-            try
-            {
-                var s0 = chips.Nth(0).Locator("span").First;
-                if (await s0.IsVisibleAsync(new() { Timeout = 600 }))
-                    v0 = (await s0.InnerTextAsync(new() { Timeout = 700 }))?.Trim().Replace(',', '.') ?? "";
-            } catch { }
-
-            try
-            {
-                var s1 = chips.Nth(1).Locator("span").First;
-                if (await s1.IsVisibleAsync(new() { Timeout = 600 }))
-                    v1 = (await s1.InnerTextAsync(new() { Timeout = 700 }))?.Trim().Replace(',', '.') ?? "";
-            } catch { }
-
-            if (string.IsNullOrWhiteSpace(v0) && string.IsNullOrWhiteSpace(v1)) continue;
-
-            // 4) Map data-qa tail "..._(1|2)" to OVER/UNDER.
-            // Convention we see on Sisal: _1 -> OVER, _2 -> UNDER.
-            string tail0 = (dqa0.Split('_').LastOrDefault() ?? "").Trim();
-            string tail1 = (dqa1.Split('_').LastOrDefault() ?? "").Trim();
-
-            if (!ou.TryGetValue(line, out var obj))
-            {
-                obj = new Dictionary<string, string>();
-                ou[line] = obj;
-            }
-
-            if (tail0 == "1" && !string.IsNullOrWhiteSpace(v0)) obj["OVER"] = v0;
-            if (tail0 == "2" && !string.IsNullOrWhiteSpace(v0)) obj["UNDER"] = v0;
-
-            if (tail1 == "1" && !string.IsNullOrWhiteSpace(v1)) obj["OVER"] = v1;
-            if (tail1 == "2" && !string.IsNullOrWhiteSpace(v1)) obj["UNDER"] = v1;
-
-            // Fallback if tails weren’t readable: first chip -> OVER, second -> UNDER
-            if (!obj.ContainsKey("OVER")  && !string.IsNullOrWhiteSpace(v0)) obj["OVER"]  = v0;
-            if (!obj.ContainsKey("UNDER") && !string.IsNullOrWhiteSpace(v1)) obj["UNDER"] = v1;
+            catch { /* cell-level best-effort */ }
         }
-    }
-    catch { /* cell-level best-effort */ }
-}
+
+
+        // Inline Totals (O/U) for American Football using your exact selectors.
+        // Looks for cells that have line in ".counter-drop-chip-default-theme span"
+        // and odds in ".chips-commons" with data-qa "..._14863_..._(1|2)" (14863 = Totals).
+        private async Task ReadAFInlineTotalsForCardAsync(ILocator card, Dictionary<string, Dictionary<string, string>> ou)
+        {
+            try
+            {
+                var cells = card.Locator(".marketAttributeSelectorCellCommon_mg-market-attribute-selector-cell__ISAm1");
+                int count = 0;
+                try { count = await cells.CountAsync(); } catch { }
+
+                for (int i = 0; i < count; i++)
+                {
+                    var cell = cells.Nth(i);
+
+                    // 1) Read the line (e.g., "51.5")
+                    string line = "";
+                    try
+                    {
+                        var lineSpan = cell.Locator(".counter-drop-chip-default-theme span").First;
+                        if (await lineSpan.IsVisibleAsync(new() { Timeout = 700 }))
+                            line = (await lineSpan.InnerTextAsync(new() { Timeout = 800 }))?.Trim().Replace(',', '.') ?? "";
+                    }
+                    catch { }
+
+                    if (string.IsNullOrWhiteSpace(line)) continue;
+
+                    // 2) Confirm this cell is TOTALS via data-qa marker (_14863_ = Totals)
+                    var chips = cell.Locator("button.chips-commons");
+                    int chipCount = 0;
+                    try { chipCount = await chips.CountAsync(); } catch { }
+
+                    if (chipCount < 2) continue;
+
+                    string dqa0 = "", dqa1 = "";
+                    try { dqa0 = await chips.Nth(0).GetAttributeAsync("data-qa") ?? ""; } catch { }
+                    try { dqa1 = await chips.Nth(1).GetAttributeAsync("data-qa") ?? ""; } catch { }
+
+                    bool looksTotals = (dqa0.Contains("_14863_") || dqa1.Contains("_14863_")); // 14863 = O/U
+                    if (!looksTotals) continue; // not a totals cell; spread reader will handle it
+
+                    // 3) Read the two odds
+                    string v0 = "", v1 = "";
+                    try
+                    {
+                        var s0 = chips.Nth(0).Locator("span").First;
+                        if (await s0.IsVisibleAsync(new() { Timeout = 600 }))
+                            v0 = (await s0.InnerTextAsync(new() { Timeout = 700 }))?.Trim().Replace(',', '.') ?? "";
+                    }
+                    catch { }
+
+                    try
+                    {
+                        var s1 = chips.Nth(1).Locator("span").First;
+                        if (await s1.IsVisibleAsync(new() { Timeout = 600 }))
+                            v1 = (await s1.InnerTextAsync(new() { Timeout = 700 }))?.Trim().Replace(',', '.') ?? "";
+                    }
+                    catch { }
+
+                    if (string.IsNullOrWhiteSpace(v0) && string.IsNullOrWhiteSpace(v1)) continue;
+
+                    // 4) Map data-qa tail "..._(1|2)" to OVER/UNDER.
+                    // Convention we see on Sisal: _1 -> OVER, _2 -> UNDER.
+                    string tail0 = (dqa0.Split('_').LastOrDefault() ?? "").Trim();
+                    string tail1 = (dqa1.Split('_').LastOrDefault() ?? "").Trim();
+
+                    if (!ou.TryGetValue(line, out var obj))
+                    {
+                        obj = new Dictionary<string, string>();
+                        ou[line] = obj;
+                    }
+
+                    if (tail0 == "1" && !string.IsNullOrWhiteSpace(v0)) obj["OVER"] = v0;
+                    if (tail0 == "2" && !string.IsNullOrWhiteSpace(v0)) obj["UNDER"] = v0;
+
+                    if (tail1 == "1" && !string.IsNullOrWhiteSpace(v1)) obj["OVER"] = v1;
+                    if (tail1 == "2" && !string.IsNullOrWhiteSpace(v1)) obj["UNDER"] = v1;
+
+                    // Fallback if tails weren’t readable: first chip -> OVER, second -> UNDER
+                    if (!obj.ContainsKey("OVER") && !string.IsNullOrWhiteSpace(v0)) obj["OVER"] = v0;
+                    if (!obj.ContainsKey("UNDER") && !string.IsNullOrWhiteSpace(v1)) obj["UNDER"] = v1;
+                }
+            }
+            catch { /* cell-level best-effort */ }
+        }
 
         private async Task<bool> ActivateGoalTabInLeagueAsync(ILocator league)
         {
@@ -2126,7 +2204,7 @@ private async Task ReadAFInlineTotalsForCardAsync(ILocator card, Dictionary<stri
 
                             string total = (await cols.Nth(0).InnerTextAsync(new() { Timeout = 700 }))?.Trim()?.Replace(',', '.') ?? "";
                             string over = (await cols.Nth(1).InnerTextAsync(new() { Timeout = 700 }))?.Trim()?.Replace(',', '.') ?? "";
-                            
+
                             string under = (await cols.Nth(2).InnerTextAsync(new() { Timeout = 700 }))?.Trim()?.Replace(',', '.') ?? "";
 
                             if (string.IsNullOrWhiteSpace(total) || string.IsNullOrWhiteSpace(over) || string.IsNullOrWhiteSpace(under))
@@ -2261,114 +2339,116 @@ private async Task ReadAFInlineTotalsForCardAsync(ILocator card, Dictionary<stri
         // =========================
         // HOCKEY (moneyline + TT + Handicap + O/U) — same JSON as basketball
         // =========================
-     // REPLACE the whole ExtractHockeyOddsAsync with this version
-private async Task ExtractHockeyOddsAsync(IPage page, string sportName, string countryOrLeague)
-{
-    Console.WriteLine($"  🧊 [Hockey] Extracting odds for {sportName} - {countryOrLeague}...");
-
-    var fixturesOut = new List<HockeyFixture>(); // now HockeyFixture (1-X-2)
-    var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-    var matchContainers = page.Locator(".grid_mg-row-wrapper__usTh4");
-
-    // light probe (some leagues may be empty)
-    int matchCount = 0;
-    for (int spin = 0; spin < 10; spin++)
-    {
-        try { matchCount = await matchContainers.CountAsync(); } catch { matchCount = 0; }
-        if (matchCount > 0) break;
-
-        try
+        // REPLACE the whole ExtractHockeyOddsAsync with this version
+        private async Task ExtractHockeyOddsAsync(IPage page, string sportName, string countryOrLeague)
         {
-            var emptyState = page.Locator(":text-matches('Nessun|Nessuna|Non ci sono|No events|No matches','i')");
-            if (await emptyState.CountAsync() > 0) break;
-        }
-        catch { }
-        await page.WaitForTimeoutAsync(300);
-    }
+            Console.WriteLine($"  🧊 [Hockey] Extracting odds for {sportName} - {countryOrLeague}...");
 
-    if (matchCount == 0)
-    {
-        Console.WriteLine($"  • [Hockey] No fixtures visible for {countryOrLeague}; skipping.");
-        return;
-    }
+            var fixturesOut = new List<HockeyFixture>(); // now HockeyFixture (1-X-2)
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-    Console.WriteLine($"  • [Hockey] Found {matchCount} fixtures (pre-filter).");
+            var matchContainers = page.Locator(".grid_mg-row-wrapper__usTh4");
 
-    for (int i = 0; i < matchCount; i++)
-    {
-        var card = matchContainers.Nth(i);
-
-        // skip live
-        bool isLive = false;
-        try
-        {
-            if (await card.Locator(".live, .badge-live, .inplay, .live-badge, [data-live='true']").CountAsync() > 0)
-                isLive = true;
-            else
+            // light probe (some leagues may be empty)
+            int matchCount = 0;
+            for (int spin = 0; spin < 10; spin++)
             {
-                var t = "";
-                try { t = (await card.InnerTextAsync(new() { Timeout = 300 })).ToLower(); } catch { }
-                if (t.Contains("live") || t.Contains("in play") || t.Contains("in-play")) isLive = true;
+                try { matchCount = await matchContainers.CountAsync(); } catch { matchCount = 0; }
+                if (matchCount > 0) break;
+
+                try
+                {
+                    var emptyState = page.Locator(":text-matches('Nessun|Nessuna|Non ci sono|No events|No matches','i')");
+                    if (await emptyState.CountAsync() > 0) break;
+                }
+                catch { }
+                await page.WaitForTimeoutAsync(300);
             }
+
+            if (matchCount == 0)
+            {
+                Console.WriteLine($"  • [Hockey] No fixtures visible for {countryOrLeague}; skipping.");
+                return;
+            }
+
+            Console.WriteLine($"  • [Hockey] Found {matchCount} fixtures (pre-filter).");
+
+            for (int i = 0; i < matchCount; i++)
+            {
+                var card = matchContainers.Nth(i);
+
+                // skip live
+                bool isLive = false;
+                try
+                {
+                    if (await card.Locator(".live, .badge-live, .inplay, .live-badge, [data-live='true']").CountAsync() > 0)
+                        isLive = true;
+                    else
+                    {
+                        var t = "";
+                        try { t = (await card.InnerTextAsync(new() { Timeout = 300 })).ToLower(); } catch { }
+                        if (t.Contains("live") || t.Contains("in play") || t.Contains("in-play")) isLive = true;
+                    }
+                }
+                catch { }
+                if (isLive) continue;
+
+                // teams
+                List<string> teams;
+                try { teams = new List<string>(await card.Locator("a.regulator_description__SY8Vw span").AllInnerTextsAsync()); }
+                catch { continue; }
+                if (teams.Count < 2) continue;
+
+                string home = teams[0].Trim();
+                string away = teams[1].Trim();
+                string key = $"{home} vs {away}";
+                if (!seen.Add(key)) continue;
+
+                try { await card.ScrollIntoViewIfNeededAsync(); } catch { }
+                try { await page.Mouse.WheelAsync(0, 500); } catch { }
+                await page.WaitForTimeoutAsync(100);
+
+                var fx = new HockeyFixture { Teams = key };
+
+                // >>> 1-X-2 for hockey, mapping _0_1 => "1", _0_2 => "X", _0_3 => "2"
+                await AddHockey1X2ForCardAsync(card, fx.Odds);
+
+                // O/U totals (dropdown on small-number chip, already implemented)
+                await ReadHockeyOUDropdownsForCardAsync(card, fx.OU);
+
+                // 1X2 HANDICAP lines (via header tab), keep as you already do
+                await ActivateHockeyHandicapHeaderAsync(page);
+                await ReadHockeyHeaderHandicapForCardAsync(card, fx.TTPlusHandicap);
+
+                fixturesOut.Add(fx);
+                Console.WriteLine($"    🧊 {key} | 1:{fx.Odds.GetValueOrDefault("1")} X:{fx.Odds.GetValueOrDefault("X")} 2:{fx.Odds.GetValueOrDefault("2")} | TT+H:{fx.TTPlusHandicap.Count} | O/U:{fx.OU.Count}");
+            }
+
+            // --- Export per country/league (Hockey) unified ---
+            var unified = new List<UnifiedOddsRecord>();
+            foreach (var fx in fixturesOut)
+            {
+                var ml = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                if (!string.IsNullOrWhiteSpace(fx.Odds.GetValueOrDefault("1"))) ml["1"] = fx.Odds["1"];
+                if (!string.IsNullOrWhiteSpace(fx.Odds.GetValueOrDefault("X"))) ml["X"] = fx.Odds["X"];
+                if (!string.IsNullOrWhiteSpace(fx.Odds.GetValueOrDefault("2"))) ml["2"] = fx.Odds["2"];
+
+                // convert 1X2-handicap to 1 2 + Handicap by dropping any "X"
+                var tt12 = new Dictionary<string, Dictionary<string, string>>();
+                foreach (var (line, vals) in fx.TTPlusHandicap)
+                {
+                    var row = new Dictionary<string, string>();
+                    if (vals.TryGetValue("1", out var h1) && !string.IsNullOrWhiteSpace(h1)) row["1"] = h1;
+                    if (vals.TryGetValue("2", out var h2) && !string.IsNullOrWhiteSpace(h2)) row["2"] = h2;
+                    if (row.Count > 0) tt12[line] = row;
+                }
+
+                unified.Add(BuildUnified(sportName, fx.Teams, ml, fx.OU, tt12));
+            }
+            await ExportUnifiedAsync(sportName, countryOrLeague, unified);
+            var merged = unified.Select(FromUnified).ToList();
+            await PostSisalLikeEurobetAsync(sportName, merged);
         }
-        catch { }
-        if (isLive) continue;
-
-        // teams
-        List<string> teams;
-        try { teams = new List<string>(await card.Locator("a.regulator_description__SY8Vw span").AllInnerTextsAsync()); }
-        catch { continue; }
-        if (teams.Count < 2) continue;
-
-        string home = teams[0].Trim();
-        string away = teams[1].Trim();
-        string key = $"{home} vs {away}";
-        if (!seen.Add(key)) continue;
-
-        try { await card.ScrollIntoViewIfNeededAsync(); } catch { }
-        try { await page.Mouse.WheelAsync(0, 500); } catch { }
-        await page.WaitForTimeoutAsync(100);
-
-        var fx = new HockeyFixture { Teams = key };
-
-        // >>> 1-X-2 for hockey, mapping _0_1 => "1", _0_2 => "X", _0_3 => "2"
-        await AddHockey1X2ForCardAsync(card, fx.Odds);
-
-        // O/U totals (dropdown on small-number chip, already implemented)
-        await ReadHockeyOUDropdownsForCardAsync(card, fx.OU);
-
-        // 1X2 HANDICAP lines (via header tab), keep as you already do
-        await ActivateHockeyHandicapHeaderAsync(page);
-        await ReadHockeyHeaderHandicapForCardAsync(card, fx.TTPlusHandicap);
-
-        fixturesOut.Add(fx);
-        Console.WriteLine($"    🧊 {key} | 1:{fx.Odds.GetValueOrDefault("1")} X:{fx.Odds.GetValueOrDefault("X")} 2:{fx.Odds.GetValueOrDefault("2")} | TT+H:{fx.TTPlusHandicap.Count} | O/U:{fx.OU.Count}");
-    }
-
- // --- Export per country/league (Hockey) unified ---
-var unified = new List<UnifiedOddsRecord>();
-foreach (var fx in fixturesOut)
-{
-    var ml = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-    if (!string.IsNullOrWhiteSpace(fx.Odds.GetValueOrDefault("1"))) ml["1"] = fx.Odds["1"];
-    if (!string.IsNullOrWhiteSpace(fx.Odds.GetValueOrDefault("X"))) ml["X"] = fx.Odds["X"];
-    if (!string.IsNullOrWhiteSpace(fx.Odds.GetValueOrDefault("2"))) ml["2"] = fx.Odds["2"];
-
-    // convert 1X2-handicap to 1 2 + Handicap by dropping any "X"
-    var tt12 = new Dictionary<string, Dictionary<string, string>>();
-    foreach (var (line, vals) in fx.TTPlusHandicap)
-    {
-        var row = new Dictionary<string, string>();
-        if (vals.TryGetValue("1", out var h1) && !string.IsNullOrWhiteSpace(h1)) row["1"] = h1;
-        if (vals.TryGetValue("2", out var h2) && !string.IsNullOrWhiteSpace(h2)) row["2"] = h2;
-        if (row.Count > 0) tt12[line] = row;
-    }
-
-    unified.Add(BuildUnified(sportName, fx.Teams, ml, fx.OU, tt12));
-}
-await ExportUnifiedAsync(sportName, countryOrLeague, unified);
-}
 
 
         private async Task AddGGNGIntoOddsForCardAsync(ILocator match, Dictionary<string, string> odds)
@@ -2557,18 +2637,20 @@ await ExportUnifiedAsync(sportName, countryOrLeague, unified);
                 Console.WriteLine($"    ⚾ {matchKey} | 1:{fx.Odds.GetValueOrDefault("1")} 2:{fx.Odds.GetValueOrDefault("2")} | TT+H:{fx.TTPlusHandicap.Count} | O/U:{fx.OU.Count}");
             }
 
-     // --- Export per country (Baseball) unified ---
-var unified = new List<UnifiedOddsRecord>();
-foreach (var fx in fixturesOut)
-{
-    var ml = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-    if (!string.IsNullOrWhiteSpace(fx.Odds.GetValueOrDefault("1"))) ml["1"] = fx.Odds["1"];
-    if (!string.IsNullOrWhiteSpace(fx.Odds.GetValueOrDefault("2"))) ml["2"] = fx.Odds["2"];
+            // --- Export per country (Baseball) unified ---
+            var unified = new List<UnifiedOddsRecord>();
+            foreach (var fx in fixturesOut)
+            {
+                var ml = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                if (!string.IsNullOrWhiteSpace(fx.Odds.GetValueOrDefault("1"))) ml["1"] = fx.Odds["1"];
+                if (!string.IsNullOrWhiteSpace(fx.Odds.GetValueOrDefault("2"))) ml["2"] = fx.Odds["2"];
 
-    unified.Add(BuildUnified(sportName, fx.Teams, ml, fx.OU, fx.TTPlusHandicap));
-}
-await ExportUnifiedAsync(sportName, countryName, unified);
-  }
+                unified.Add(BuildUnified(sportName, fx.Teams, ml, fx.OU, fx.TTPlusHandicap));
+            }
+            await ExportUnifiedAsync(sportName, countryName, unified);
+            var merged = unified.Select(FromUnified).ToList();
+            await PostSisalLikeEurobetAsync(sportName, merged);
+        }
 
         // 1–2 moneyline (same pattern as basket/tennis)
         private async Task AddBaseball12ForCardAsync(ILocator match, Dictionary<string, string> odds)
@@ -2722,132 +2804,132 @@ await ExportUnifiedAsync(sportName, countryName, unified);
             public Dictionary<string, Dictionary<string, string>> OU { get; set; } = new();
         }
 
-// --- Rugby fixture: simple 1-X-2 ---
-// --- Rugby fixture: 1-X-2 + O/U (header) ---
-public class RugbyFixture
-{
-    public string Teams { get; set; } = string.Empty;
+        // --- Rugby fixture: simple 1-X-2 ---
+        // --- Rugby fixture: 1-X-2 + O/U (header) ---
+        public class RugbyFixture
+        {
+            public string Teams { get; set; } = string.Empty;
 
-    // Moneyline 1-X-2
-    public Dictionary<string, string> Odds { get; set; } = new()
-    {
-        ["1"] = "",
-        ["X"] = "",
-        ["2"] = ""
-    };
+            // Moneyline 1-X-2
+            public Dictionary<string, string> Odds { get; set; } = new()
+            {
+                ["1"] = "",
+                ["X"] = "",
+                ["2"] = ""
+            };
 
-    // NEW: Under/Over totals from header tab
-    [JsonPropertyName("O/U")]
-    public Dictionary<string, Dictionary<string, string>> OU { get; set; } = new();
-}
+            // NEW: Under/Over totals from header tab
+            [JsonPropertyName("O/U")]
+            public Dictionary<string, Dictionary<string, string>> OU { get; set; } = new();
+        }
 
-private async Task<bool> ActivateRugbyOverUnderHeaderAsync(IPage page)
-{
-    // Prefer exact data-qa you provided
-    var candidates = new[]
-    {
+        private async Task<bool> ActivateRugbyOverUnderHeaderAsync(IPage page)
+        {
+            // Prefer exact data-qa you provided
+            var candidates = new[]
+            {
         "button[data-qa='classeEsito_10055']",
         "button:has-text('UNDER/OVER')",
         "button:has(:text('UNDER/OVER'))"
     };
 
-    foreach (var sel in candidates)
-    {
-        try
-        {
-            var btn = page.Locator(sel).First;
-            if (await btn.IsVisibleAsync(new() { Timeout = 1200 }))
+            foreach (var sel in candidates)
             {
-                try { await btn.ScrollIntoViewIfNeededAsync(); } catch { }
-                await btn.ClickAsync(new() { Force = true });
+                try
+                {
+                    var btn = page.Locator(sel).First;
+                    if (await btn.IsVisibleAsync(new() { Timeout = 1200 }))
+                    {
+                        try { await btn.ScrollIntoViewIfNeededAsync(); } catch { }
+                        await btn.ClickAsync(new() { Force = true });
 
-                // Wait briefly for O/U markets (data-qa contains _10055_) to appear
-                await Task.WhenAny(
-                    page.Locator("button.chips-commons[data-qa*='_10055_']").First
-                        .WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 2000 }),
-                    page.WaitForTimeoutAsync(500)
-                );
-                return true;
+                        // Wait briefly for O/U markets (data-qa contains _10055_) to appear
+                        await Task.WhenAny(
+                            page.Locator("button.chips-commons[data-qa*='_10055_']").First
+                                .WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 2000 }),
+                            page.WaitForTimeoutAsync(500)
+                        );
+                        return true;
+                    }
+                }
+                catch { /* try next */ }
             }
+            return false;
         }
-        catch { /* try next */ }
-    }
-    return false;
-}
-private async Task ReadRugbyHeaderOUForCardAsync(ILocator card, Dictionary<string, Dictionary<string, string>> ou)
-{
-    try
-    {
-        // Each O/U block is a "market attribute" with a title like "U/O 48.5"
-        var markets = card.Locator(".template_mg-market-attribute__Y16SU");
-        int mcount = 0; try { mcount = await markets.CountAsync(); } catch { }
-
-        for (int i = 0; i < mcount; i++)
+        private async Task ReadRugbyHeaderOUForCardAsync(ILocator card, Dictionary<string, Dictionary<string, string>> ou)
         {
-            var mkt = markets.Nth(i);
-
-            // Get the market title text
-            string title = "";
             try
             {
-                title = (await mkt.Locator(".mg-market-attribute-desc .tw-fr-font-primary")
-                                  .First.InnerTextAsync(new() { Timeout = 800 }))?.Trim() ?? "";
-            }
-            catch { }
+                // Each O/U block is a "market attribute" with a title like "U/O 48.5"
+                var markets = card.Locator(".template_mg-market-attribute__Y16SU");
+                int mcount = 0; try { mcount = await markets.CountAsync(); } catch { }
 
-            if (string.IsNullOrWhiteSpace(title) || !title.Contains("U/O", StringComparison.OrdinalIgnoreCase))
-                continue;
-
-            // Extract the numeric line (e.g., "48.5" / "50.5") from "U/O 48.5"
-            string line = "";
-            try
-            {
-                var m = Regex.Match(title.Replace(',', '.'), @"U\/O\s*([0-9]+(?:\.[0-9]+)?)", RegexOptions.IgnoreCase);
-                if (m.Success) line = m.Groups[1].Value.Trim();
-            }
-            catch { }
-            if (string.IsNullOrWhiteSpace(line)) continue;
-
-            // Two chips inside this block: data-qa like ..._10055_4850_1 and ..._10055_4850_2
-            // Convention: tail _1 => OVER, _2 => UNDER (matches your snippet).
-            string over = "", under = "";
-
-            try
-            {
-                var overBtn = mkt.Locator("button.chips-commons[data-qa*='_10055_'][data-qa$='_1'] span").First;
-                if (await overBtn.IsVisibleAsync(new() { Timeout = 600 }))
+                for (int i = 0; i < mcount; i++)
                 {
-                    var t = (await overBtn.InnerTextAsync(new() { Timeout = 700 }))?.Trim();
-                    if (!string.IsNullOrWhiteSpace(t)) over = t.Replace(',', '.');
+                    var mkt = markets.Nth(i);
+
+                    // Get the market title text
+                    string title = "";
+                    try
+                    {
+                        title = (await mkt.Locator(".mg-market-attribute-desc .tw-fr-font-primary")
+                                          .First.InnerTextAsync(new() { Timeout = 800 }))?.Trim() ?? "";
+                    }
+                    catch { }
+
+                    if (string.IsNullOrWhiteSpace(title) || !title.Contains("U/O", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    // Extract the numeric line (e.g., "48.5" / "50.5") from "U/O 48.5"
+                    string line = "";
+                    try
+                    {
+                        var m = Regex.Match(title.Replace(',', '.'), @"U\/O\s*([0-9]+(?:\.[0-9]+)?)", RegexOptions.IgnoreCase);
+                        if (m.Success) line = m.Groups[1].Value.Trim();
+                    }
+                    catch { }
+                    if (string.IsNullOrWhiteSpace(line)) continue;
+
+                    // Two chips inside this block: data-qa like ..._10055_4850_1 and ..._10055_4850_2
+                    // Convention: tail _1 => OVER, _2 => UNDER (matches your snippet).
+                    string over = "", under = "";
+
+                    try
+                    {
+                        var overBtn = mkt.Locator("button.chips-commons[data-qa*='_10055_'][data-qa$='_1'] span").First;
+                        if (await overBtn.IsVisibleAsync(new() { Timeout = 600 }))
+                        {
+                            var t = (await overBtn.InnerTextAsync(new() { Timeout = 700 }))?.Trim();
+                            if (!string.IsNullOrWhiteSpace(t)) over = t.Replace(',', '.');
+                        }
+                    }
+                    catch { }
+
+                    try
+                    {
+                        var underBtn = mkt.Locator("button.chips-commons[data-qa*='_10055_'][data-qa$='_2'] span").First;
+                        if (await underBtn.IsVisibleAsync(new() { Timeout = 600 }))
+                        {
+                            var t = (await underBtn.InnerTextAsync(new() { Timeout = 700 }))?.Trim();
+                            if (!string.IsNullOrWhiteSpace(t)) under = t.Replace(',', '.');
+                        }
+                    }
+                    catch { }
+
+                    if (!string.IsNullOrWhiteSpace(over) || !string.IsNullOrWhiteSpace(under))
+                    {
+                        if (!ou.TryGetValue(line, out var obj))
+                        {
+                            obj = new Dictionary<string, string>();
+                            ou[line] = obj;
+                        }
+                        if (!string.IsNullOrWhiteSpace(over)) obj["OVER"] = over;
+                        if (!string.IsNullOrWhiteSpace(under)) obj["UNDER"] = under;
+                    }
                 }
             }
-            catch { }
-
-            try
-            {
-                var underBtn = mkt.Locator("button.chips-commons[data-qa*='_10055_'][data-qa$='_2'] span").First;
-                if (await underBtn.IsVisibleAsync(new() { Timeout = 600 }))
-                {
-                    var t = (await underBtn.InnerTextAsync(new() { Timeout = 700 }))?.Trim();
-                    if (!string.IsNullOrWhiteSpace(t)) under = t.Replace(',', '.');
-                }
-            }
-            catch { }
-
-            if (!string.IsNullOrWhiteSpace(over) || !string.IsNullOrWhiteSpace(under))
-            {
-                if (!ou.TryGetValue(line, out var obj))
-                {
-                    obj = new Dictionary<string, string>();
-                    ou[line] = obj;
-                }
-                if (!string.IsNullOrWhiteSpace(over))  obj["OVER"]  = over;
-                if (!string.IsNullOrWhiteSpace(under)) obj["UNDER"] = under;
-            }
+            catch { /* per-card best-effort */ }
         }
-    }
-    catch { /* per-card best-effort */ }
-}
 
         private async Task<bool> ExpandCountryAsync(ILocator country, int index, int expandTimeoutMs = 8000)
         {
@@ -3012,100 +3094,179 @@ private async Task ReadRugbyHeaderOUForCardAsync(ILocator card, Dictionary<strin
         }
 
         // Heuristic: page went blank or left the sport shell
-private async Task<bool> IsBlankishAsync(IPage page)
-{
-    try
-    {
-        // If body has almost no text and no main app shell, consider it blankish
-        var bodyText = (await page.Locator("body").InnerTextAsync(new() { Timeout = 800 })).Trim();
-        if (bodyText.Length < 40) return true;
-
-        // Or: the sport slider & accordions are gone
-        int slider = 0, acc = 0;
-        try { slider = await page.Locator(".horizontalScroll_container__ACxu6 > div > a").CountAsync(); } catch { }
-        try { acc = await page.Locator(".FR-Accordion").CountAsync(); } catch { }
-
-        return slider == 0 && acc == 0;
-    }
-    catch { return true; } // if we can't read, treat as blankish
-}
-
-// Core recovery: if Scommesse is visible, re-enter Sport and optionally click the requested sport tile again
-private async Task<bool> RecoverIfBlankWithScommesseAsync(IPage page, string? requestedSport = null)
-{
-    try
-    {
-        var scommesseTab = page.Locator("#dropdown1-tab1"); // "Scommesse"
-        if (!await scommesseTab.IsVisibleAsync(new() { Timeout = 1000 })) return false;
-
-        Console.WriteLine("🛟 Recovery: clicking 'Scommesse'…");
-        await HandleAllBlockers(page);
-        await scommesseTab.ClickAsync(new() { Force = true });
-
-        Console.WriteLine("🛟 Recovery: clicking 'Sport'…");
-        var sportLink = page.Locator("a.card-title[aria-label='Accedi alla sezione Sport']");
-        await sportLink.ClickAsync(new() { Force = true });
-
-        // Wait for the sport slider to be back
-        var sportItems = page.Locator(".horizontalScroll_container__ACxu6 > div > a");
-        try { await sportItems.First.WaitForAsync(new() { Timeout = 6000 }); } catch { }
-
-        if (!string.IsNullOrWhiteSpace(requestedSport))
+        private async Task<bool> IsBlankishAsync(IPage page)
         {
-            // Try to re-click the originally requested sport
-            int total = 0; try { total = await sportItems.CountAsync(); } catch { }
-            for (int i = 0; i < total; i++)
+            try
             {
-                string tileText = "";
-                try { tileText = (await sportItems.Nth(i).InnerTextAsync(new() { Timeout = 800 }))?.Trim() ?? ""; } catch { }
-                if (string.IsNullOrWhiteSpace(tileText)) continue;
+                // If body has almost no text and no main app shell, consider it blankish
+                var bodyText = (await page.Locator("body").InnerTextAsync(new() { Timeout = 800 })).Trim();
+                if (bodyText.Length < 40) return true;
 
-                if (tileText.Contains(requestedSport!, StringComparison.OrdinalIgnoreCase))
+                // Or: the sport slider & accordions are gone
+                int slider = 0, acc = 0;
+                try { slider = await page.Locator(".horizontalScroll_container__ACxu6 > div > a").CountAsync(); } catch { }
+                try { acc = await page.Locator(".FR-Accordion").CountAsync(); } catch { }
+
+                return slider == 0 && acc == 0;
+            }
+            catch { return true; } // if we can't read, treat as blankish
+        }
+
+        // Core recovery: if Scommesse is visible, re-enter Sport and optionally click the requested sport tile again
+        private async Task<bool> RecoverIfBlankWithScommesseAsync(IPage page, string? requestedSport = null)
+        {
+            try
+            {
+                var scommesseTab = page.Locator("#dropdown1-tab1"); // "Scommesse"
+                if (!await scommesseTab.IsVisibleAsync(new() { Timeout = 1000 })) return false;
+
+                Console.WriteLine("🛟 Recovery: clicking 'Scommesse'…");
+                await HandleAllBlockers(page);
+                await scommesseTab.ClickAsync(new() { Force = true });
+
+                Console.WriteLine("🛟 Recovery: clicking 'Sport'…");
+                var sportLink = page.Locator("a.card-title[aria-label='Accedi alla sezione Sport']");
+                await sportLink.ClickAsync(new() { Force = true });
+
+                // Wait for the sport slider to be back
+                var sportItems = page.Locator(".horizontalScroll_container__ACxu6 > div > a");
+                try { await sportItems.First.WaitForAsync(new() { Timeout = 6000 }); } catch { }
+
+                if (!string.IsNullOrWhiteSpace(requestedSport))
                 {
-                    Console.WriteLine($"🛟 Recovery: re-clicking sport tile '{tileText}'…");
-                    try { await sportItems.Nth(i).ScrollIntoViewIfNeededAsync(); } catch { }
-                    await HandleAllBlockers(page);
-                    await sportItems.Nth(i).ClickAsync(new() { Force = true });
-                    await HandleAllBlockers(page);
-                    break;
+                    // Try to re-click the originally requested sport
+                    int total = 0; try { total = await sportItems.CountAsync(); } catch { }
+                    for (int i = 0; i < total; i++)
+                    {
+                        string tileText = "";
+                        try { tileText = (await sportItems.Nth(i).InnerTextAsync(new() { Timeout = 800 }))?.Trim() ?? ""; } catch { }
+                        if (string.IsNullOrWhiteSpace(tileText)) continue;
+
+                        if (tileText.Contains(requestedSport!, StringComparison.OrdinalIgnoreCase))
+                        {
+                            Console.WriteLine($"🛟 Recovery: re-clicking sport tile '{tileText}'…");
+                            try { await sportItems.Nth(i).ScrollIntoViewIfNeededAsync(); } catch { }
+                            await HandleAllBlockers(page);
+                            await sportItems.Nth(i).ClickAsync(new() { Force = true });
+                            await HandleAllBlockers(page);
+                            break;
+                        }
+                    }
+                }
+
+                // Give the page a moment to settle
+                await WaitForCalmAsync(page);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+        private async Task WithBlankRecoveryAsync(IPage page, string? requestedSport, Func<Task> step)
+        {
+            // Try the step
+            try { await step(); }
+            catch
+            {
+                // If something blew up, attempt recovery and retry once
+                if (await RecoverIfBlankWithScommesseAsync(page, requestedSport))
+                {
+                    await step();
+                    return;
+                }
+                throw; // let the original error bubble if recovery failed
+            }
+
+            // Even if no exception, if the page turned blankish mid-flow, recover and retry once
+            if (await IsBlankishAsync(page))
+            {
+                Console.WriteLine("⚠ Detected blank-ish page after step. Attempting recovery…");
+                if (await RecoverIfBlankWithScommesseAsync(page, requestedSport))
+                {
+                    await step();
                 }
             }
         }
-
-        // Give the page a moment to settle
-        await WaitForCalmAsync(page);
-        return true;
-    }
-    catch
-    {
-        return false;
-    }
-}
-private async Task WithBlankRecoveryAsync(IPage page, string? requestedSport, Func<Task> step)
-{
-    // Try the step
-    try { await step(); }
-    catch
-    {
-        // If something blew up, attempt recovery and retry once
-        if (await RecoverIfBlankWithScommesseAsync(page, requestedSport))
+        // Convert the per-sport "UnifiedOddsRecord" (your file export structure)
+        // into the exact SharedOdds.MatchData + OddsSchema that the Eurobet sender expects.
+        private static bool TryObjToDouble(object? v, out double d)
         {
-            await step();
-            return;
+            switch (v)
+            {
+                case double dd: d = dd; return true;
+                case float ff: d = ff; return true;
+                case int ii: d = ii; return true;
+                case long ll: d = ll; return true;
+                case string s when double.TryParse(s.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var ds):
+                    d = ds; return true;
+                default:
+                    d = 0; return false;
+            }
         }
-        throw; // let the original error bubble if recovery failed
-    }
 
-    // Even if no exception, if the page turned blankish mid-flow, recover and retry once
-    if (await IsBlankishAsync(page))
-    {
-        Console.WriteLine("⚠ Detected blank-ish page after step. Attempting recovery…");
-        if (await RecoverIfBlankWithScommesseAsync(page, requestedSport))
+        private static SharedOdds.MatchData FromUnified(UnifiedOddsRecord r)
         {
-            await step();
+            var md = new SharedOdds.MatchData
+            {
+                Teams = r.Teams,
+                Odds = new SharedOdds.OddsSchema()
+            };
+
+            // 1 / X / 2 (top-level)
+            if (r.Odds.TryGetValue("1", out var o1) && TryObjToDouble(o1, out var d1)) md.Odds.One = d1;
+            if (r.Odds.TryGetValue("X", out var ox) && TryObjToDouble(ox, out var dx)) md.Odds.X = dx;
+            if (r.Odds.TryGetValue("2", out var o2) && TryObjToDouble(o2, out var d2)) md.Odds.Two = d2;
+
+            // GG / NG (soccer only if present)
+            if (r.Odds.TryGetValue("GG", out var ogg) && TryObjToDouble(ogg, out var dgg)) md.Odds.GG = dgg;
+            if (r.Odds.TryGetValue("NG", out var ong) && TryObjToDouble(ong, out var dng)) md.Odds.NG = dng;
+
+            // O/U block
+            if (r.Odds.TryGetValue("O/U", out var ouObj) && ouObj is Dictionary<string, object> ouDict)
+            {
+                foreach (var (line, rowObj) in ouDict)
+                {
+                    SharedOdds.OverUnderNode node = new SharedOdds.OverUnderNode();
+                    if (rowObj is Dictionary<string, object> row)
+                    {
+                        if (row.TryGetValue("U", out var u) && TryObjToDouble(u, out var du)) node.U = du;
+                        if (row.TryGetValue("O", out var o) && TryObjToDouble(o, out var dover)) node.O = dover;
+                    }
+                    else if (rowObj is Dictionary<string, double> rowD)
+                    {
+                        if (rowD.TryGetValue("U", out var du)) node.U = du;
+                        if (rowD.TryGetValue("O", out var dover)) node.O = dover;
+                    }
+                    if (node.U.HasValue || node.O.HasValue)
+                        md.Odds.OU[line] = node;
+                }
+            }
+
+            // Handicap block: "1 2 + Handicap"
+            if (r.Odds.TryGetValue("1 2 + Handicap", out var hObj) && hObj is Dictionary<string, object> hDict)
+            {
+                foreach (var (line, rowObj) in hDict)
+                {
+                    var node = new SharedOdds.OneTwoNode();
+                    if (rowObj is Dictionary<string, object> row)
+                    {
+                        if (row.TryGetValue("1", out var h1) && TryObjToDouble(h1, out var dh1)) node.One = dh1;
+                        if (row.TryGetValue("2", out var h2) && TryObjToDouble(h2, out var dh2)) node.Two = dh2;
+                    }
+                    else if (rowObj is Dictionary<string, double> rowD)
+                    {
+                        if (rowD.TryGetValue("1", out var dh1)) node.One = dh1;
+                        if (rowD.TryGetValue("2", out var dh2)) node.Two = dh2;
+                    }
+                    if (node.One.HasValue || node.Two.HasValue)
+                        md.Odds.OneTwoHandicap[line] = node;
+                }
+            }
+
+            return md;
         }
-    }
-}
+
 
         // =========================
         // BASKETBALL (updated odds; per-fixture scroll)
@@ -3196,291 +3357,306 @@ private async Task WithBlankRecoveryAsync(IPage page, string? requestedSport, Fu
             }
 
             // Export per country (basket)
-       // --- Export per country (Basket) unified ---
-var unified = new List<UnifiedOddsRecord>();
-foreach (var fx in fixturesOut)
-{
-    var ml = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-    if (!string.IsNullOrWhiteSpace(fx.Odds.GetValueOrDefault("1"))) ml["1"] = fx.Odds["1"];
-    if (!string.IsNullOrWhiteSpace(fx.Odds.GetValueOrDefault("2"))) ml["2"] = fx.Odds["2"];
-
-    unified.Add(BuildUnified(sportName, fx.Teams, ml, fx.OU, fx.TTPlusHandicap));
-}
-await ExportUnifiedAsync(sportName, countryName, unified);
-Console.WriteLine($"  ✅ [Basket] Unified JSON exported for {sportName} - {countryName} ({fixturesOut.Count} fixtures)\n");
-        }
-public class UnifiedOddsRecord
-{
-    public string sport { get; set; } = "";
-    public string Teams { get; set; } = "";
-    public string Bookmaker { get; set; } = "Sisal"; // change if needed
-    public Dictionary<string, object> Odds { get; set; } = new();
-}
-
-private static bool TryToDouble(string? s, out double val)
-{
-    if (string.IsNullOrWhiteSpace(s)) { val = 0; return false; }
-    return double.TryParse(s.Replace(',', '.'), System.Globalization.NumberStyles.Float,
-                           System.Globalization.CultureInfo.InvariantCulture, out val);
-}
-
-// Unified builder: feed in basic moneyline (1/2 and optional X),
-// O/U lines, and Handicap lines (we map only 1 & 2 for the handicap block).
-private UnifiedOddsRecord BuildUnified(
-    string sport,
-    string teams,
-    Dictionary<string, string> moneyline12or1x2, // may contain "1","2" and optionally "X"
-    Dictionary<string, Dictionary<string, string>> ou, // total -> { OVER/UNDER | O/U variants }
-    Dictionary<string, Dictionary<string, string>> tt  // line  -> { "1","2" (and maybe "X" for hockey) }
-)
-{
-    var rec = new UnifiedOddsRecord
-    {
-        sport = sport,
-        Teams = teams
-    };
-
-    // 1, X, 2 at top-level inside Odds
-    if (moneyline12or1x2.TryGetValue("1", out var v1) && TryToDouble(v1, out var d1))
-        rec.Odds["1"] = d1;
-    if (moneyline12or1x2.TryGetValue("2", out var v2) && TryToDouble(v2, out var d2))
-        rec.Odds["2"] = d2;
-    // If sport has draw, include it (optional but harmless for baseball/basketball/tennis/AF)
-    if (moneyline12or1x2.TryGetValue("X", out var vx) && TryToDouble(vx, out var dx))
-        rec.Odds["X"] = dx;
-
-    // O/U block
-    if (ou != null && ou.Count > 0)
-    {
-        var ouBlock = new Dictionary<string, object>();
-        foreach (var kv in ou)
-        {
-            var line = kv.Key?.Replace(',', '.');
-            if (string.IsNullOrWhiteSpace(line)) continue;
-
-            var row = new Dictionary<string, double>();
-            // Accept either "OVER"/"UNDER" or "O"/"U"
-            if (kv.Value.TryGetValue("OVER", out var o) && TryToDouble(o, out var dover))
-                row["O"] = dover;
-            if (kv.Value.TryGetValue("UNDER", out var u) && TryToDouble(u, out var dunder))
-                row["U"] = dunder;
-            if (kv.Value.TryGetValue("O", out var o2) && TryToDouble(o2, out var do2))
-                row["O"] = do2;
-            if (kv.Value.TryGetValue("U", out var u2) && TryToDouble(u2, out var du2))
-                row["U"] = du2;
-
-            if (row.Count > 0) ouBlock[line] = row;
-        }
-        if (ouBlock.Count > 0) rec.Odds["O/U"] = ouBlock;
-    }
-
-    // Handicap block — spec calls it "1 2 + Handicap"
-    if (tt != null && tt.Count > 0)
-    {
-        var hcap = new Dictionary<string, object>();
-        foreach (var kv in tt)
-        {
-            var line = kv.Key?.Replace(',', '.');
-            if (string.IsNullOrWhiteSpace(line)) continue;
-
-            var row = new Dictionary<string, double>();
-            if (kv.Value.TryGetValue("1", out var h1) && TryToDouble(h1, out var dh1))
-                row["1"] = dh1;
-            if (kv.Value.TryGetValue("2", out var h2) && TryToDouble(h2, out var dh2))
-                row["2"] = dh2;
-
-            // We intentionally ignore "X" here to respect your target block label.
-
-            if (row.Count > 0) hcap[line] = row;
-        }
-        if (hcap.Count > 0) rec.Odds["1 2 + Handicap"] = hcap;
-    }
-
-    return rec;
-}
-
-// Serialize helper used by all extractors
-private async Task ExportUnifiedAsync(string sportName, string countryOrLeague, List<UnifiedOddsRecord> outList)
-{
-    string safe = string.Join("_", countryOrLeague.Split(Path.GetInvalidFileNameChars()));
-    string fileName = $"{sportName}_{safe}_odds.json";
-    var opts = new JsonSerializerOptions
-    {
-        WriteIndented = true,
-        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-    };
-    string json = JsonSerializer.Serialize(outList, opts);
-    await File.WriteAllTextAsync(fileName, json);
-    Console.WriteLine($"  ✅ [{sportName}] Unified JSON exported to {fileName} ({outList.Count} fixtures)\n");
-}
-
-  private async Task ExtractRugbyOddsAsync(IPage page, string sportName, string countryOrLeague)
-{
-    Console.WriteLine($"  🏉 [Rugby] Extracting 1-X-2 odds for {sportName} - {countryOrLeague}...");
-
-    var fixturesOut = new List<RugbyFixture>();
-    var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-    var cards = page.Locator(".grid_mg-row-wrapper__usTh4");
-
-    int matchCount = 0;
-    for (int spin = 0; spin < 10; spin++)
-    {
-        try { matchCount = await cards.CountAsync(); } catch { matchCount = 0; }
-        if (matchCount > 0) break;
-        try
-        {
-            var empty = page.Locator(":text-matches('Nessun|Nessuna|Non ci sono|No events|No matches','i')");
-            if (await empty.CountAsync() > 0) break;
-        }
-        catch { }
-        await page.WaitForTimeoutAsync(300);
-    }
-
-    Console.WriteLine($"  • [Rugby] Found {matchCount} fixtures (pre-filter).");
-    if (matchCount == 0) return;
-
-    bool ouHeaderActivated = false; // <-- NEW
-
-    for (int i = 0; i < matchCount; i++)
-    {
-        var card = cards.Nth(i);
-
-        // Skip live
-        bool isLive = false;
-        try
-        {
-            if (await card.Locator(".live, .badge-live, .inplay, .live-badge, [data-live='true']").CountAsync() > 0)
-                isLive = true;
-            else
+            // --- Export per country (Basket) unified ---
+            var unified = new List<UnifiedOddsRecord>();
+            foreach (var fx in fixturesOut)
             {
-                var t = "";
-                try { t = (await card.InnerTextAsync(new() { Timeout = 300 })).ToLower(); } catch { }
-                if (t.Contains("live") || t.Contains("in play") || t.Contains("in-play")) isLive = true;
+                var ml = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                if (!string.IsNullOrWhiteSpace(fx.Odds.GetValueOrDefault("1"))) ml["1"] = fx.Odds["1"];
+                if (!string.IsNullOrWhiteSpace(fx.Odds.GetValueOrDefault("2"))) ml["2"] = fx.Odds["2"];
+
+                unified.Add(BuildUnified(sportName, fx.Teams, ml, fx.OU, fx.TTPlusHandicap));
             }
+            await ExportUnifiedAsync(sportName, countryName, unified);
+            Console.WriteLine($"  ✅ [Basket] Unified JSON exported for {sportName} - {countryName} ({fixturesOut.Count} fixtures)\n");
+            var merged = unified.Select(FromUnified).ToList();
+            await PostSisalLikeEurobetAsync(sportName, merged);
         }
-        catch { }
-        if (isLive) continue;
-
-        // Teams
-        List<string> teams;
-        try { teams = new List<string>(await card.Locator("a.regulator_description__SY8Vw span").AllInnerTextsAsync()); }
-        catch { continue; }
-        if (teams.Count < 2) continue;
-
-        string home = teams[0].Trim();
-        string away = teams[1].Trim();
-        string key = $"{home} vs {away}";
-        if (!seen.Add(key)) continue;
-
-        try { await card.ScrollIntoViewIfNeededAsync(); } catch { }
-        try { await page.Mouse.WheelAsync(0, 300); } catch { }
-        await page.WaitForTimeoutAsync(60);
-
-        var fx = new RugbyFixture { Teams = key };
-
-        // 1) FIRST: 1-X-2
-        await AddRugby1X2ForCardAsync(card, fx.Odds);
-
-        // 2) THEN: click the O/U header once, and extract O/U for this card
-        if (!ouHeaderActivated)
+        public class UnifiedOddsRecord
         {
-            ouHeaderActivated = await ActivateRugbyOverUnderHeaderAsync(page);
-            // tiny settle
-            await page.WaitForTimeoutAsync(200);
-        }
-        if (ouHeaderActivated)
-        {
-            await ReadRugbyHeaderOUForCardAsync(card, fx.OU);
+            public string sport { get; set; } = "";
+            public string Teams { get; set; } = "";
+            public string Bookmaker { get; set; } = "Sisal"; // change if needed
+            public Dictionary<string, object> Odds { get; set; } = new();
         }
 
-        fixturesOut.Add(fx);
-        Console.WriteLine($"    🏉 {key} | 1:{fx.Odds.GetValueOrDefault("1")} X:{fx.Odds.GetValueOrDefault("X")} 2:{fx.Odds.GetValueOrDefault("2")} | O/U:{fx.OU.Count}");
-    }
-
-      // --- Export per country/league (Rugby) unified ---
-    var unified = new List<UnifiedOddsRecord>();
-    foreach (var fx in fixturesOut)
-    {
-        // moneyline (1, X, 2) — add only if present
-        var ml = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        if (!string.IsNullOrWhiteSpace(fx.Odds.GetValueOrDefault("1"))) ml["1"] = fx.Odds["1"];
-        if (!string.IsNullOrWhiteSpace(fx.Odds.GetValueOrDefault("X"))) ml["X"] = fx.Odds["X"];
-        if (!string.IsNullOrWhiteSpace(fx.Odds.GetValueOrDefault("2"))) ml["2"] = fx.Odds["2"];
-
-        // no handicap lines for rugby in this pass
-        var tt = new Dictionary<string, Dictionary<string, string>>();
-
-        unified.Add(BuildUnified(sportName, fx.Teams, ml, fx.OU, tt));
-    }
-    await ExportUnifiedAsync(sportName, countryOrLeague, unified);
-}
-
-
-// Rugby 1-X-2 reader from inline chips inside the specific market container you provided.
-// It prefers data-qa tails (_..._1, _..._2, _..._3) to map 1 / 2 / X; falls back to DOM order 1, X, 2.
-// Rugby 1-X-2 reader from inline chips inside the specific market container you provided.
-// Data-qa tails mapping per your snippet: _1 => "1", _2 => "X", _3 => "2".
-private async Task AddRugby1X2ForCardAsync(ILocator card, Dictionary<string, string> odds)
-{
-    try
-    {
-        var market = card.Locator(".template_mg-market-attribute__JNwjO").First;
-        bool visible = false;
-        try { visible = await market.IsVisibleAsync(new() { Timeout = 800 }); } catch { }
-        if (!visible)
+        private static bool TryToDouble(string? s, out double val)
         {
-            var allMkts = card.Locator(".template_mg-market-attribute__JNwjO");
-            int mc = 0; try { mc = await allMkts.CountAsync(); } catch { }
-            for (int i = 0; i < mc; i++)
+            if (string.IsNullOrWhiteSpace(s)) { val = 0; return false; }
+            return double.TryParse(s.Replace(',', '.'), System.Globalization.NumberStyles.Float,
+                                   System.Globalization.CultureInfo.InvariantCulture, out val);
+        }
+
+        // Unified builder: feed in basic moneyline (1/2 and optional X),
+        // O/U lines, and Handicap lines (we map only 1 & 2 for the handicap block).
+        private UnifiedOddsRecord BuildUnified(
+            string sport,
+            string teams,
+            Dictionary<string, string> moneyline12or1x2, // may contain "1","2" and optionally "X"
+            Dictionary<string, Dictionary<string, string>> ou, // total -> { OVER/UNDER | O/U variants }
+            Dictionary<string, Dictionary<string, string>> tt  // line  -> { "1","2" (and maybe "X" for hockey) }
+        )
+        {
+            var rec = new UnifiedOddsRecord
             {
-                var m = allMkts.Nth(i);
-                try { if (await m.IsVisibleAsync(new() { Timeout = 400 })) { market = m; break; } } catch { }
+                sport = sport,
+                Teams = teams
+            };
+
+            // 1, X, 2 at top-level inside Odds
+            if (moneyline12or1x2.TryGetValue("1", out var v1) && TryToDouble(v1, out var d1))
+                rec.Odds["1"] = d1;
+            if (moneyline12or1x2.TryGetValue("2", out var v2) && TryToDouble(v2, out var d2))
+                rec.Odds["2"] = d2;
+            // If sport has draw, include it (optional but harmless for baseball/basketball/tennis/AF)
+            if (moneyline12or1x2.TryGetValue("X", out var vx) && TryToDouble(vx, out var dx))
+                rec.Odds["X"] = dx;
+
+            // O/U block
+            if (ou != null && ou.Count > 0)
+            {
+                var ouBlock = new Dictionary<string, object>();
+                foreach (var kv in ou)
+                {
+                    var line = kv.Key?.Replace(',', '.');
+                    if (string.IsNullOrWhiteSpace(line)) continue;
+
+                    var row = new Dictionary<string, double>();
+                    // Accept either "OVER"/"UNDER" or "O"/"U"
+                    if (kv.Value.TryGetValue("OVER", out var o) && TryToDouble(o, out var dover))
+                        row["O"] = dover;
+                    if (kv.Value.TryGetValue("UNDER", out var u) && TryToDouble(u, out var dunder))
+                        row["U"] = dunder;
+                    if (kv.Value.TryGetValue("O", out var o2) && TryToDouble(o2, out var do2))
+                        row["O"] = do2;
+                    if (kv.Value.TryGetValue("U", out var u2) && TryToDouble(u2, out var du2))
+                        row["U"] = du2;
+
+                    if (row.Count > 0) ouBlock[line] = row;
+                }
+                if (ouBlock.Count > 0) rec.Odds["O/U"] = ouBlock;
             }
+
+            // Handicap block — spec calls it "1 2 + Handicap"
+            if (tt != null && tt.Count > 0)
+            {
+                var hcap = new Dictionary<string, object>();
+                foreach (var kv in tt)
+                {
+                    var line = kv.Key?.Replace(',', '.');
+                    if (string.IsNullOrWhiteSpace(line)) continue;
+
+                    var row = new Dictionary<string, double>();
+                    if (kv.Value.TryGetValue("1", out var h1) && TryToDouble(h1, out var dh1))
+                        row["1"] = dh1;
+                    if (kv.Value.TryGetValue("2", out var h2) && TryToDouble(h2, out var dh2))
+                        row["2"] = dh2;
+
+                    // We intentionally ignore "X" here to respect your target block label.
+
+                    if (row.Count > 0) hcap[line] = row;
+                }
+                if (hcap.Count > 0) rec.Odds["1 2 + Handicap"] = hcap;
+            }
+
+            return rec;
         }
 
-        var chips = market.Locator("button.chips-commons");
-        int c = 0; try { c = await chips.CountAsync(); } catch { }
-        if (c < 2) return;
-
-        for (int i = 0; i < c && i < 3; i++)
+        // Serialize helper used by all extractors
+        private async Task ExportUnifiedAsync(string sportName, string countryOrLeague, List<UnifiedOddsRecord> outList)
         {
-            string v = "";
+            string safe = string.Join("_", countryOrLeague.Split(Path.GetInvalidFileNameChars()));
+            string fileName = $"{sportName}_{safe}_odds.json";
+            var opts = new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            };
+            string json = JsonSerializer.Serialize(outList, opts);
+            await File.WriteAllTextAsync(fileName, json);
+            Console.WriteLine($"  ✅ [{sportName}] Unified JSON exported to {fileName} ({outList.Count} fixtures)\n");
+        }
+
+        private async Task ExtractRugbyOddsAsync(IPage page, string sportName, string countryOrLeague)
+        {
+            Console.WriteLine($"  🏉 [Rugby] Extracting 1-X-2 odds for {sportName} - {countryOrLeague}...");
+
+            var fixturesOut = new List<RugbyFixture>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            var cards = page.Locator(".grid_mg-row-wrapper__usTh4");
+
+            int matchCount = 0;
+            for (int spin = 0; spin < 10; spin++)
+            {
+                try { matchCount = await cards.CountAsync(); } catch { matchCount = 0; }
+                if (matchCount > 0) break;
+                try
+                {
+                    var empty = page.Locator(":text-matches('Nessun|Nessuna|Non ci sono|No events|No matches','i')");
+                    if (await empty.CountAsync() > 0) break;
+                }
+                catch { }
+                await page.WaitForTimeoutAsync(300);
+            }
+
+            Console.WriteLine($"  • [Rugby] Found {matchCount} fixtures (pre-filter).");
+            if (matchCount == 0) return;
+
+            bool ouHeaderActivated = false; // <-- NEW
+
+            for (int i = 0; i < matchCount; i++)
+            {
+                var card = cards.Nth(i);
+
+                // Skip live
+                bool isLive = false;
+                try
+                {
+                    if (await card.Locator(".live, .badge-live, .inplay, .live-badge, [data-live='true']").CountAsync() > 0)
+                        isLive = true;
+                    else
+                    {
+                        var t = "";
+                        try { t = (await card.InnerTextAsync(new() { Timeout = 300 })).ToLower(); } catch { }
+                        if (t.Contains("live") || t.Contains("in play") || t.Contains("in-play")) isLive = true;
+                    }
+                }
+                catch { }
+                if (isLive) continue;
+
+                // Teams
+                List<string> teams;
+                try { teams = new List<string>(await card.Locator("a.regulator_description__SY8Vw span").AllInnerTextsAsync()); }
+                catch { continue; }
+                if (teams.Count < 2) continue;
+
+                string home = teams[0].Trim();
+                string away = teams[1].Trim();
+                string key = $"{home} vs {away}";
+                if (!seen.Add(key)) continue;
+
+                try { await card.ScrollIntoViewIfNeededAsync(); } catch { }
+                try { await page.Mouse.WheelAsync(0, 300); } catch { }
+                await page.WaitForTimeoutAsync(60);
+
+                var fx = new RugbyFixture { Teams = key };
+
+                // 1) FIRST: 1-X-2
+                await AddRugby1X2ForCardAsync(card, fx.Odds);
+
+                // 2) THEN: click the O/U header once, and extract O/U for this card
+                if (!ouHeaderActivated)
+                {
+                    ouHeaderActivated = await ActivateRugbyOverUnderHeaderAsync(page);
+                    // tiny settle
+                    await page.WaitForTimeoutAsync(200);
+                }
+                if (ouHeaderActivated)
+                {
+                    await ReadRugbyHeaderOUForCardAsync(card, fx.OU);
+                }
+
+                fixturesOut.Add(fx);
+                Console.WriteLine($"    🏉 {key} | 1:{fx.Odds.GetValueOrDefault("1")} X:{fx.Odds.GetValueOrDefault("X")} 2:{fx.Odds.GetValueOrDefault("2")} | O/U:{fx.OU.Count}");
+            }
+
+            // --- Export per country/league (Rugby) unified ---
+            var unified = new List<UnifiedOddsRecord>();
+            foreach (var fx in fixturesOut)
+            {
+                // moneyline (1, X, 2) — add only if present
+                var ml = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                if (!string.IsNullOrWhiteSpace(fx.Odds.GetValueOrDefault("1"))) ml["1"] = fx.Odds["1"];
+                if (!string.IsNullOrWhiteSpace(fx.Odds.GetValueOrDefault("X"))) ml["X"] = fx.Odds["X"];
+                if (!string.IsNullOrWhiteSpace(fx.Odds.GetValueOrDefault("2"))) ml["2"] = fx.Odds["2"];
+
+                // no handicap lines for rugby in this pass
+                var tt = new Dictionary<string, Dictionary<string, string>>();
+
+                unified.Add(BuildUnified(sportName, fx.Teams, ml, fx.OU, tt));
+            }
+            await ExportUnifiedAsync(sportName, countryOrLeague, unified);
+            var merged = unified.Select(FromUnified).ToList();
+            await PostSisalLikeEurobetAsync(sportName, merged);
+
+        }
+
+
+        // Rugby 1-X-2 reader from inline chips inside the specific market container you provided.
+        // It prefers data-qa tails (_..._1, _..._2, _..._3) to map 1 / 2 / X; falls back to DOM order 1, X, 2.
+        // Rugby 1-X-2 reader from inline chips inside the specific market container you provided.
+        // Data-qa tails mapping per your snippet: _1 => "1", _2 => "X", _3 => "2".
+        private async Task AddRugby1X2ForCardAsync(ILocator card, Dictionary<string, string> odds)
+        {
             try
             {
-                var span = chips.Nth(i).Locator("span").First;
-                if (await span.IsVisibleAsync(new() { Timeout = 600 }))
-                    v = (await span.InnerTextAsync(new() { Timeout = 700 }))?.Trim().Replace(',', '.') ?? "";
-            } catch { }
+                var market = card.Locator(".template_mg-market-attribute__JNwjO").First;
+                bool visible = false;
+                try { visible = await market.IsVisibleAsync(new() { Timeout = 800 }); } catch { }
+                if (!visible)
+                {
+                    var allMkts = card.Locator(".template_mg-market-attribute__JNwjO");
+                    int mc = 0; try { mc = await allMkts.CountAsync(); } catch { }
+                    for (int i = 0; i < mc; i++)
+                    {
+                        var m = allMkts.Nth(i);
+                        try { if (await m.IsVisibleAsync(new() { Timeout = 400 })) { market = m; break; } } catch { }
+                    }
+                }
 
-            string tail = "";
-            try
-            {
-                var dqa = await chips.Nth(i).GetAttributeAsync("data-qa") ?? "";
-                tail = dqa.Split('_').LastOrDefault() ?? "";
-            } catch { }
+                var chips = market.Locator("button.chips-commons");
+                int c = 0; try { c = await chips.CountAsync(); } catch { }
+                if (c < 2) return;
 
-            if (string.IsNullOrWhiteSpace(v)) continue;
+                for (int i = 0; i < c && i < 3; i++)
+                {
+                    string v = "";
+                    try
+                    {
+                        var span = chips.Nth(i).Locator("span").First;
+                        if (await span.IsVisibleAsync(new() { Timeout = 600 }))
+                            v = (await span.InnerTextAsync(new() { Timeout = 700 }))?.Trim().Replace(',', '.') ?? "";
+                    }
+                    catch { }
 
-            // Your snippet: _1 => "1", _2 => "X", _3 => "2"
-            if (tail == "1") odds["1"] = v;
-            if (tail == "2") odds["X"] = v;
-            if (tail == "3") odds["2"] = v;
+                    string tail = "";
+                    try
+                    {
+                        var dqa = await chips.Nth(i).GetAttributeAsync("data-qa") ?? "";
+                        tail = dqa.Split('_').LastOrDefault() ?? "";
+                    }
+                    catch { }
+
+                    if (string.IsNullOrWhiteSpace(v)) continue;
+
+                    // Your snippet: _1 => "1", _2 => "X", _3 => "2"
+                    if (tail == "1") odds["1"] = v;
+                    if (tail == "2") odds["X"] = v;
+                    if (tail == "3") odds["2"] = v;
+                }
+
+                // Fallback to DOM order 1, X, 2 if tails weren’t readable
+                if (string.IsNullOrWhiteSpace(odds.GetValueOrDefault("1")) ||
+                    string.IsNullOrWhiteSpace(odds.GetValueOrDefault("X")) ||
+                    string.IsNullOrWhiteSpace(odds.GetValueOrDefault("2")))
+                {
+                    var vals = await chips.Locator("span").AllInnerTextsAsync();
+                    if (vals.Count >= 1 && string.IsNullOrWhiteSpace(odds.GetValueOrDefault("1"))) odds["1"] = vals[0].Trim().Replace(',', '.');
+                    if (vals.Count >= 2 && string.IsNullOrWhiteSpace(odds.GetValueOrDefault("X"))) odds["X"] = vals[1].Trim().Replace(',', '.');
+                    if (vals.Count >= 3 && string.IsNullOrWhiteSpace(odds.GetValueOrDefault("2"))) odds["2"] = vals[2].Trim().Replace(',', '.');
+                }
+            }
+            catch { }
         }
 
-        // Fallback to DOM order 1, X, 2 if tails weren’t readable
-        if (string.IsNullOrWhiteSpace(odds.GetValueOrDefault("1")) ||
-            string.IsNullOrWhiteSpace(odds.GetValueOrDefault("X")) ||
-            string.IsNullOrWhiteSpace(odds.GetValueOrDefault("2")))
+        // Local DTO for scraping only (dictionary-based)
+        private sealed class ScrapedMatch
         {
-            var vals = await chips.Locator("span").AllInnerTextsAsync();
-            if (vals.Count >= 1 && string.IsNullOrWhiteSpace(odds.GetValueOrDefault("1"))) odds["1"] = vals[0].Trim().Replace(',', '.');
-            if (vals.Count >= 2 && string.IsNullOrWhiteSpace(odds.GetValueOrDefault("X"))) odds["X"] = vals[1].Trim().Replace(',', '.');
-            if (vals.Count >= 3 && string.IsNullOrWhiteSpace(odds.GetValueOrDefault("2"))) odds["2"] = vals[2].Trim().Replace(',', '.');
+            public string Teams { get; set; } = string.Empty;
+            public Dictionary<string, string> Odds { get; set; } = new();
         }
-    }
-    catch { }
-}
+
 
         // 1–2 moneyline for basketball
         private async Task AddBasket12ForCardAsync(ILocator match, Dictionary<string, string> odds)
@@ -3814,11 +3990,11 @@ private async Task AddRugby1X2ForCardAsync(ILocator card, Dictionary<string, str
     }
 
     // Soccer fixture (unchanged structure)
-    public class MatchData
-    {
-        public string Teams { get; set; } = string.Empty;
-        public Dictionary<string, string> Odds { get; set; } = new();
-    }
+    // public class MatchData
+    // {
+    //     public string Teams { get; set; } = string.Empty;
+    //     public Dictionary<string, string> Odds { get; set; } = new();
+    // }
 
 
     // Tennis fixture (with TT + Handicap)
